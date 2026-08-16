@@ -82,4 +82,41 @@ describe('impact-analysis.service', () => {
   it('estimates prompt tokens from the same prompt used by the service', () => {
     expect(estimateImpactPromptTokens(input)).toBeGreaterThan(0);
   });
+
+  it('accepts an ExtensionContext as the first argument', async () => {
+    const model = {
+      id: 'model-ctx',
+      name: 'CtxModel',
+      sendRequest: jest.fn().mockResolvedValue({
+        text: (async function* () {
+          yield 'ctx answer';
+        })()
+      })
+    };
+    jest.spyOn(vscode.lm, 'selectChatModels').mockResolvedValue([model] as any);
+
+    const fakeCtx = {
+      workspaceState: { get: jest.fn(() => 'copilot') }
+    } as any;
+
+    const result = await runImpactAnalysis(
+      fakeCtx,
+      input,
+      new vscode.CancellationToken()
+    );
+
+    expect(result.modelName).toBe('CtxModel');
+    expect(model.sendRequest).toHaveBeenCalled();
+  });
+
+  it('throws when provider configured in context has no models', async () => {
+    jest.spyOn(vscode.lm, 'selectChatModels').mockResolvedValue([]);
+    const fakeCtx = {
+      workspaceState: { get: jest.fn(() => 'no-provider') }
+    } as any;
+
+    await expect(
+      runImpactAnalysis(fakeCtx, input, new vscode.CancellationToken())
+    ).rejects.toThrow('Nenhum modelo');
+  });
 });

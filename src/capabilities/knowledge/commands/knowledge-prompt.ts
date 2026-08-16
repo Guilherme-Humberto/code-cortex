@@ -1,6 +1,7 @@
 import * as path from 'node:path';
 
 import { SelectedFileContext } from '@/infra/core/context/selected-file-context';
+import { redactSensitiveContent } from '@/infra/core/utils/redact-sensitive.util';
 import { KnowledgeDocument } from './knowledge-context';
 
 export function createKnowledgePrompt(
@@ -10,7 +11,7 @@ export function createKnowledgePrompt(
   const knowledgeContext = documents
     .map(
       document =>
-        `## Documento: ${path.basename(document.path)}\n\n${document.content}`
+        `## Documento: ${path.basename(document.path)}\n\n${redactSensitiveContent(document.content, document.path)}`
     )
     .join('\n\n');
 
@@ -45,14 +46,14 @@ export function createFilesKnowledgePrompt(
   const fileContext = files
     .map(
       file =>
-        `### ${file.path}\n\`\`\`${file.language}\n${file.content}\n\`\`\``
+        `### ${file.path}\n\`\`\`${file.language}\n${redactSensitiveContent(file.content, file.path)}\n\`\`\``
     )
     .join('\n\n');
   const knowledgeContext = documents
     .slice(0, 8)
     .map(
       document =>
-        `### Documento: ${path.basename(document.path)}\n${document.content.slice(0, 1800)}`
+        `### Documento: ${path.basename(document.path)}\n${redactSensitiveContent(document.content, document.path).slice(0, 1800)}`
     )
     .join('\n\n');
 

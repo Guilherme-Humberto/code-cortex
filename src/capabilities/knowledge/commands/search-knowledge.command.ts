@@ -49,6 +49,7 @@ export function registerSearchKnowledgeCommand(
         vscode.window.showErrorMessage('Nenhum workspace encontrado.');
         return;
       }
+      const selectedFile = vscode.workspace.asRelativePath(editor.document.uri);
 
       await vscode.commands.executeCommand(
         'workbench.view.extension.code-cortex'
@@ -102,7 +103,12 @@ export function registerSearchKnowledgeCommand(
         ImpactViewProvider.current?.showAnalysis(
           answer || 'O modelo não retornou uma análise.',
           estimateTokenCount(prompt) + estimateTokenCount(answer),
-          describeModel(model)
+          describeModel(model),
+          [selectedFile],
+          {
+            kind: 'knowledge-search',
+            title: `Pesquisa na Base de Conhecimento: ${selectedFile}`
+          }
         );
         void vscode.window.showInformationMessage(
           'Consulta à Base de Conhecimento concluída.'
@@ -180,7 +186,12 @@ export function registerSearchKnowledgeCommand(
         ImpactViewProvider.current?.showAnalysis(
           answer || 'O modelo não retornou uma análise.',
           estimateTokenCount(prompt) + estimateTokenCount(answer),
-          describeModel(model)
+          describeModel(model),
+          selectedPaths,
+          {
+            kind: 'knowledge-search',
+            title: `Pesquisa com arquivos em foco: ${question || 'sem pergunta'}`
+          }
         );
       } finally {
         tokenSource.dispose();
@@ -199,12 +210,14 @@ async function selectConfiguredModel(
   ctx: vscode.ExtensionContext
 ): Promise<vscode.LanguageModelChat[]> {
   const modelId = ctx.workspaceState.get<string>('knowledge.selectedModelId');
+  const provider =
+    ctx.workspaceState.get<string>('knowledge.selectedProviderId') || 'copilot';
   const models = await vscode.lm.selectChatModels({
-    vendor: 'copilot',
+    vendor: provider,
     ...(modelId ? { id: modelId } : {})
   });
 
   return models.length > 0 || !modelId
     ? models
-    : vscode.lm.selectChatModels({ vendor: 'copilot' });
+    : vscode.lm.selectChatModels({ vendor: provider });
 }

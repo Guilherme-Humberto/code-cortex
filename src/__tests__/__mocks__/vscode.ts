@@ -75,7 +75,11 @@ export const workspace = {
   },
   fs: {
     readFile: async () => new Uint8Array(),
-    readDirectory: async () => [] as [string, number][]
+    readDirectory: async () => [] as [string, number][],
+    createDirectory: async () => undefined,
+    writeFile: async () => undefined,
+    stat: async () => ({ size: 0 }) as any,
+    delete: async () => undefined
   }
 };
 

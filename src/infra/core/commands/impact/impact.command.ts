@@ -165,6 +165,7 @@ async function executeImpactAnalysis(
         const tokenSource = new vscode.CancellationTokenSource();
         try {
           const result = await runImpactAnalysis(
+            ctx,
             {
               objective:
                 'Identificar impactos técnicos e pontos de validação entre os arquivos selecionados.',
@@ -176,7 +177,12 @@ async function executeImpactAnalysis(
           ImpactViewProvider.current?.showAnalysis(
             result.markdown || 'O modelo não retornou uma análise.',
             result.totalTokens,
-            result.modelName
+            result.modelName,
+            paths,
+            {
+              kind: 'impact-analysis',
+              title: `Análise de impacto (${paths.length} arquivo(s))`
+            }
           );
         } finally {
           tokenSource.dispose();

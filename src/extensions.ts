@@ -37,7 +37,9 @@ export async function deactivate(): Promise<void> {
   console.log('Code Cortex extension deactivating...');
 
   try {
-    if (!disposables.isDisposed) {disposables.dispose();}
+    if (!disposables.isDisposed) {
+      disposables.dispose();
+    }
   } catch (error) {
     console.error('Error disposing extension resources:', error);
   }

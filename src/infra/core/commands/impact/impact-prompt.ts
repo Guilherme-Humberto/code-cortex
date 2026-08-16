@@ -2,6 +2,7 @@ import {
   SELECTED_FILE_CONTEXT_LIMITS,
   SelectedFileContext
 } from '../../context/selected-file-context';
+import { redactSensitiveContent } from '../../utils/redact-sensitive.util';
 
 export interface ImpactPromptInput {
   readonly objective?: string;
@@ -14,11 +15,12 @@ export function buildImpactPrompt(input: ImpactPromptInput): string {
     'Avaliar possíveis impactos entre os arquivos selecionados.';
   const files = input.files
     .map(file => {
+      const redactedContent = redactSensitiveContent(file.content, file.path);
       const truncationNote = file.truncated
         ? '\n[Conteúdo truncado pelo limite de custo.]'
         : '';
 
-      return `### ${file.path} (${file.language})\n\`\`\`${file.language}\n${file.content}${truncationNote}\n\`\`\``;
+      return `### ${file.path} (${file.language})\n\`\`\`${file.language}\n${redactedContent}${truncationNote}\n\`\`\``;
     })
     .join('\n\n');
 
