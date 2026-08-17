@@ -3,7 +3,7 @@
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./dist",
-    "types": ["node", "vscode"]
+    "types": ["node", "vscode", "jest"]
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", ".vscode-test", "src/**/__tests__/**"]

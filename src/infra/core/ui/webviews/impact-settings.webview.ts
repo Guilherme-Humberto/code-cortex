@@ -11,6 +11,7 @@ interface BuildImpactSettingsWebviewParams {
   models: readonly vscode.LanguageModelChat[];
   selectedModelId?: string;
   tokenSavedNotice: string;
+  tokenValue?: string | null;
   settings: ImpactSettings;
 }
 
@@ -18,7 +19,11 @@ export function buildImpactSettingsWebviewHtml(
   params: BuildImpactSettingsWebviewParams
 ): string {
   const nonce = createNonce();
-  const { models, selectedModelId, tokenSavedNotice, settings } = params;
+  const { models, selectedModelId, tokenSavedNotice, tokenValue, settings } =
+    params;
+
+  const defaultModelId =
+    selectedModelId || (models && models.length ? models[0]!.id : undefined);
 
   const modelOptions = [...models]
     .sort((left, right) =>
@@ -29,15 +34,16 @@ export function buildImpactSettingsWebviewHtml(
     .map(model => {
       const label = model.name;
       const isAutomaticModel = label.trim().toLowerCase() === 'auto';
-      const selected =
-        model.id === selectedModelId || (!selectedModelId && isAutomaticModel)
-          ? ' selected'
-          : '';
+      const selected = model.id === defaultModelId ? ' selected' : '';
       return `<option value="${escapeHtmlAttribute(model.id)}"${selected}>${escapeHtmlAttribute(label)}</option>`;
     })
     .join('');
 
   const initialConfigJson = serializeWebviewJson(settings);
+  const tokenValueJson = JSON.stringify(tokenValue ?? '').replace(
+    /</g,
+    '\u003c'
+  );
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -94,7 +100,7 @@ export function buildImpactSettingsWebviewHtml(
       <select id="syncMode" style="min-width:200px;">
         <option value="github" selected>Repositório GitHub</option>
         <option value="sharepoint">SharePoint (simulação)</option>
-        <option value="local">Pasta na máquina local</option>
+        <option value="local">Diretório Local</option>
       </select>
     </div>
 
@@ -109,7 +115,6 @@ export function buildImpactSettingsWebviewHtml(
       <label for="githubToken">Token GitHub (opcional)</label>
       <div style="display:flex;gap:8px;align-items:center;">
         <input id="githubToken" type="password" placeholder="Cole um Personal Access Token" style="flex:1;padding:8px;border-radius:4px;border:1px solid color-mix(in srgb, var(--vscode-foreground) 32%, var(--vscode-sideBar-background));background:var(--vscode-input-background);color:var(--vscode-input-foreground);" />
-        <button id="saveGithubToken">Salvar</button>
         <button id="removeGithubToken" style="background:transparent;color:var(--vscode-errorForeground);border:1px solid var(--vscode-panel-border);">Remover</button>
       </div>
       <div style="margin-top:6px;margin-bottom:12px;color:var(--vscode-descriptionForeground);font-size:12px;">Use um token para acessar repositórios privados${tokenSavedNotice}.</div>
@@ -142,8 +147,14 @@ export function buildImpactSettingsWebviewHtml(
         if (initial.product) document.getElementById('product').value = initial.product;
         if (initial.project) document.getElementById('project').value = initial.project;
         if (initial.selectedModel) document.getElementById('model').value = initial.selectedModel;
+        // if a token value was provided, populate the input (useful UX despite token being stored securely)
+        try { document.getElementById('githubToken').value = ${tokenValueJson} || document.getElementById('githubToken').value; } catch(e) {}
       } catch (e) {}
       updateMode();
+      // request models from the extension host in case provider models are available asynchronously
+      try {
+        vscode.postMessage({ command: 'requestModels', provider: document.getElementById('provider').value });
+      } catch (e) {}
     }, 30);
 
     document.getElementById('back').addEventListener('click', () => vscode.postMessage({ command: 'back' }));
@@ -203,7 +214,6 @@ export function buildImpactSettingsWebviewHtml(
       document.getElementById('githubToken').value = '';
     }
 
-    document.getElementById('saveGithubToken').addEventListener('click', saveGithubToken);
     document.getElementById('removeGithubToken').addEventListener('click', removeGithubToken);
 
     function autoSave() {
@@ -233,12 +243,32 @@ export function buildImpactSettingsWebviewHtml(
     }
     syncModeSelect.addEventListener('change', () => {
       updateMode();
-      autoSave();
+
+      // Clear fields that don't apply to the newly selected source
+      try {
+        const mode = (document.getElementById('syncMode') || { value: 'github' }).value;
+        const allowedByMode = {
+          github: ['githubToken', 'repoUrl'],
+          sharepoint: ['product', 'project'],
+          local: ['localPath']
+        };
+        const allowed = new Set(allowedByMode[mode] || []);
+        const all = ['githubToken', 'repoUrl', 'product', 'project', 'localPath'];
+        for (const id of all) {
+          if (!allowed.has(id)) {
+            try {
+              const el = document.getElementById(id);
+              if (el && 'value' in el) el.value = '';
+            } catch (e) {}
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
     });
 
-    // autosave when repository URL editing finishes
+    // repository URL will be saved only when user clicks 'Sincronizar'
     const repoUrlEl = document.getElementById('repoUrl');
-    if (repoUrlEl) repoUrlEl.addEventListener('blur', () => autoSave());
 
     document.getElementById('pickFolder').addEventListener('click', () => {
       vscode.postMessage({ command: 'pickLocalFolder' });
@@ -253,6 +283,11 @@ export function buildImpactSettingsWebviewHtml(
         return;
       }
       if (mode === 'github') {
+        // Save token via secure store before syncing
+        try {
+          const token = document.getElementById('githubToken').value;
+          vscode.postMessage({ command: 'saveGithubToken', token: token || '' });
+        } catch (e) {}
         vscode.postMessage({ command: 'saveSettings', syncMode: mode, repoUrl: document.getElementById('repoUrl').value, selectedModel: document.getElementById('model').value });
         vscode.postMessage({ command: 'syncKnowledge', mode: 'github', repoUrl: document.getElementById('repoUrl').value });
         return;
@@ -267,6 +302,45 @@ export function buildImpactSettingsWebviewHtml(
       const msg = event.data || {};
       if (msg.command === 'localFolderSelected') {
         localPathInput.value = msg.path || '';
+      }
+    });
+
+    // listen for model list updates from extension (also ensure default selection)
+    window.addEventListener('message', event => {
+      const msg = event.data || {};
+      if (msg.command === 'models') {
+        const models = Array.isArray(msg.models) ? msg.models : [];
+        const modelSelect = document.getElementById('model');
+        if (!modelSelect) return;
+        modelSelect.innerHTML = '';
+        if (models.length === 0) {
+          const opt = document.createElement('option');
+          opt.value = '';
+          opt.disabled = true;
+          opt.textContent = 'Nenhum modelo disponível para o provider selecionado';
+          modelSelect.appendChild(opt);
+          return;
+        }
+
+        const initialSelected = initial.selectedModel || '';
+        const selectedId = initialSelected || (models[0] && (models[0].id || models[0].name) ) || '';
+
+        for (const m of models) {
+          const opt = document.createElement('option');
+          const id = m.id || m.name || '';
+          opt.value = id;
+          opt.textContent = m.name || m.id || String(m);
+          if (id === selectedId) opt.selected = true;
+          modelSelect.appendChild(opt);
+        }
+
+        // if we selected a default because there was no saved selection, persist it
+        if (!initial.selectedModel && selectedId) {
+          try {
+            modelSelect.value = selectedId;
+            modelSelect.dispatchEvent(new Event('change'));
+          } catch (e) {}
+        }
       }
     });
 

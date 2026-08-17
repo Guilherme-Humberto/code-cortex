@@ -22,8 +22,6 @@ export class WorkspaceInitializer {
         }
       )
     );
-
-    // A seleção agora é gerenciada via Explorer context menu e exibida na webview.
   }
 
   /**

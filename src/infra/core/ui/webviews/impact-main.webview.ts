@@ -60,11 +60,11 @@ export function buildImpactMainWebviewHtml(
     .remove-btn { min-width: 26px; padding: 2px 6px; background: transparent; color: var(--vscode-descriptionForeground); border: 0; }
     .remove-btn:hover { color: var(--vscode-errorForeground); background: var(--vscode-toolbar-hoverBackground); }
     .empty { padding: 8px 0 2px; color: var(--vscode-descriptionForeground); line-height: 1.45; }
-    .history { min-width: 0; max-height: 220px; overflow: auto; }
+    .history { min-width: 0; max-height: 220px; overflow-y: auto; overflow-x: hidden; }
     .history-row { display: block; width: 100%; min-width: 0; min-height: 0; overflow: hidden; padding: 7px 6px; border: 0; border-top: 1px solid var(--vscode-panel-border); border-radius: 0; background: transparent; color: var(--vscode-textLink-foreground); cursor: pointer; font: inherit; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
     .history-row:first-child { border-top: 0; }
     .history-row:hover { background: var(--vscode-list-hoverBackground); }
-    .history .files > div { margin-bottom: 4px; }
+    .history .files > div { margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   </style>
 </head>
 <body>
@@ -180,9 +180,7 @@ export function buildImpactMainWebviewHtml(
         const savedName = (entry.path || '').split('/').pop() || entry.title || entry.path;
         title.textContent = (idx + 1) + ') ' + savedName;
         title.style.fontWeight = '600';
-        title.style.whiteSpace = 'nowrap';
-        title.style.overflow = 'hidden';
-        title.style.textOverflow = 'ellipsis';
+        title.title = savedName;
 
         const filesEl = document.createElement('div');
         filesEl.className = 'files';
@@ -196,6 +194,7 @@ export function buildImpactMainWebviewHtml(
         for (let i = 0; i < Math.min(files.length, maxShow); i++) {
           const li = document.createElement('div');
           li.textContent = files[i];
+          li.title = files[i];
           filesEl.appendChild(li);
         }
         if (files.length > maxShow) {

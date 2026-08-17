@@ -9,6 +9,7 @@ import {
   toUris
 } from '../../context/file-selection';
 import { runImpactAnalysis } from './impact-analysis.service';
+import { listHistoryEntries } from '../../history/history.service';
 
 const IMPACT_STATE_KEY = 'impact.selection';
 const SELECTED_MODEL_KEY = 'knowledge.selectedModelId';
@@ -18,6 +19,112 @@ export function registerImpactCommands(ctx: vscode.ExtensionContext): void {
   registerRemoveCommand(ctx);
   registerSelectFilesCommand(ctx);
   registerAnalysisCommand(ctx);
+  registerShowHistoryForFileCommand(ctx);
+  registerOpenFullHistoryCommand(ctx);
+  registerActiveEditorListener(ctx);
+}
+
+function registerOpenFullHistoryCommand(ctx: vscode.ExtensionContext): void {
+  ctx.subscriptions.push(
+    vscode.commands.registerCommand('codeCortex.openFullHistory', async () => {
+      await vscode.commands.executeCommand(
+        'workbench.view.extension.code-cortex'
+      );
+      ImpactViewProvider.current?.showFullHistory();
+    })
+  );
+}
+
+function registerShowHistoryForFileCommand(ctx: vscode.ExtensionContext): void {
+  ctx.subscriptions.push(
+    vscode.commands.registerCommand(
+      'codeCortex.showHistoryForFile',
+      async (arg?: unknown) => {
+        const workspace = vscode.workspace.workspaceFolders?.[0];
+        if (!workspace) {
+          vscode.window.showWarningMessage(
+            'Abra uma pasta/workspace primeiro.'
+          );
+          return;
+        }
+
+        let relPath = '';
+        if (arg instanceof vscode.Uri) {
+          relPath = vscode.workspace.asRelativePath(arg);
+        } else if (typeof arg === 'string' && arg.length) {
+          relPath = arg;
+        } else {
+          const editor = vscode.window.activeTextEditor;
+          if (!editor) {
+            vscode.window.showInformationMessage('Nenhum arquivo ativo.');
+            return;
+          }
+          relPath = vscode.workspace.asRelativePath(editor.document.uri);
+        }
+
+        const all = await listHistoryEntries(ctx);
+        const filtered = all.filter(
+          entry =>
+            Array.isArray(entry.files) && entry.files.indexOf(relPath) !== -1
+        );
+
+        if (!filtered.length) {
+          vscode.window.showInformationMessage(
+            'Nenhuma entrada de histórico encontrada para: ' + relPath
+          );
+          return;
+        }
+
+        await vscode.commands.executeCommand(
+          'workbench.view.extension.code-cortex'
+        );
+        ImpactViewProvider.current?.showHistoryForFile(relPath, filtered);
+      }
+    )
+  );
+}
+
+function registerActiveEditorListener(ctx: vscode.ExtensionContext): void {
+  const status = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Left,
+    100
+  );
+  status.text = '$(history) CodeCortex: Histórico de consultas do arquivo';
+  status.tooltip = 'Ver histórico deste arquivo';
+  status.command = 'codeCortex.showHistoryForFile';
+  ctx.subscriptions.push(status);
+
+  const refresh = async (editor?: vscode.TextEditor | undefined) => {
+    try {
+      const ed = editor ?? vscode.window.activeTextEditor;
+      if (!ed || !ed.document) {
+        status.hide();
+        return;
+      }
+      const relPath = vscode.workspace.asRelativePath(ed.document.uri);
+      const entries = await listHistoryEntries(ctx);
+      const has = entries.some(
+        e => Array.isArray(e.files) && e.files.indexOf(relPath) !== -1
+      );
+      if (has) {
+        status.show();
+      } else {
+        status.hide();
+      }
+    } catch {
+      // ignore
+      status.hide();
+    }
+  };
+
+  ctx.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor(async editor => {
+      await refresh(editor);
+    })
+  );
+
+  // initial check
+  void refresh(vscode.window.activeTextEditor);
 }
 
 function registerAddCommand(ctx: vscode.ExtensionContext): void {
@@ -161,7 +268,7 @@ async function executeImpactAnalysis(
           throw new Error('Nenhum arquivo legível foi encontrado.');
         }
 
-        progress.report({ message: 'Consultando o Copilot...' });
+        progress.report({ message: 'Consultando o modelo...' });
         const tokenSource = new vscode.CancellationTokenSource();
         try {
           const result = await runImpactAnalysis(

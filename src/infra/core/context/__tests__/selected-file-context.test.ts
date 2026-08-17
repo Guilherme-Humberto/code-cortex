@@ -87,4 +87,24 @@ describe('selected-file-context', () => {
       collectSelectedFileContext(workspace, ['missing.ts', 'valid.ts'])
     ).resolves.toHaveLength(1);
   });
+
+  it('detects multiple languages based on file extension', async () => {
+    jest
+      .spyOn(vscode.workspace.fs, 'readFile')
+      .mockResolvedValue(Buffer.from('content'));
+
+    const result = await collectSelectedFileContext(workspace, [
+      'file.js',
+      'doc.md',
+      'style.css',
+      'unknown.ext'
+    ]);
+
+    expect(result.map(r => r.language)).toEqual([
+      'javascript',
+      'markdown',
+      'css',
+      'text'
+    ]);
+  });
 });

@@ -3,6 +3,7 @@ import { randomBytes } from 'node:crypto';
 
 const HISTORY_STATE_KEY = 'code-cortex.history.entries';
 const HISTORY_DIRECTORY = 'code-cortex/_history';
+const HISTORY_INDEX_KEY = 'code-cortex.history.index';
 
 export type HistoryEntryKind =
   'impact-analysis' | 'knowledge-search' | 'manual';
@@ -81,6 +82,23 @@ export async function saveHistoryEntry(
     ...getHistoryState(context).filter(item => item.path !== entry.path)
   ]);
 
+  // update fast lookup index by file
+  try {
+    const index = context.workspaceState.get<Record<string, string[]>>(
+      HISTORY_INDEX_KEY,
+      {}
+    );
+    for (const file of metadata.files) {
+      const list = index[file] || [];
+      if (list.indexOf(entry.path) === -1) {
+        index[file] = [entry.path, ...list];
+      }
+    }
+    await context.workspaceState.update(HISTORY_INDEX_KEY, index);
+  } catch {
+    // ignore index failures
+  }
+
   return entry.path;
 }
 
@@ -102,6 +120,31 @@ export async function listHistoryEntries(
   return typeof options.limit === 'number'
     ? sorted.slice(0, options.limit)
     : sorted;
+}
+
+export async function listHistoryEntriesByFile(
+  context: vscode.ExtensionContext,
+  filePath: string
+): Promise<HistoryEntry[]> {
+  const workspace = vscode.workspace.workspaceFolders?.[0];
+  if (!workspace) {
+    return [];
+  }
+
+  const state = await ensureHydratedHistoryEntries(context, workspace.uri);
+  const index = context.workspaceState.get<Record<string, string[]>>(
+    HISTORY_INDEX_KEY,
+    {}
+  );
+  const paths = index[filePath] || [];
+  if (!paths.length) {
+    // fallback to scanning state
+    return state.filter(
+      e => Array.isArray(e.files) && e.files.indexOf(filePath) !== -1
+    );
+  }
+
+  return state.filter(e => paths.indexOf(e.path) !== -1);
 }
 
 export async function clearHistoryEntries(
@@ -127,6 +170,49 @@ export async function clearHistoryEntries(
     })
   );
   await context.workspaceState.update(HISTORY_STATE_KEY, []);
+  try {
+    await context.workspaceState.update(HISTORY_INDEX_KEY, {});
+  } catch {
+    // ignore
+  }
+}
+
+export async function removeHistoryEntry(
+  context: vscode.ExtensionContext,
+  path: string
+): Promise<void> {
+  const workspace = vscode.workspace.workspaceFolders?.[0];
+  if (!workspace) {
+    return;
+  }
+
+  try {
+    await vscode.workspace.fs.delete(vscode.Uri.joinPath(workspace.uri, path), {
+      useTrash: false
+    });
+  } catch {
+    // ignore
+  }
+
+  // remove from state
+  const remaining = getHistoryState(context).filter(e => e.path !== path);
+  await context.workspaceState.update(HISTORY_STATE_KEY, remaining);
+
+  try {
+    // rebuild index
+    const newIndex: Record<string, string[]> = {};
+    for (const e of remaining) {
+      for (const f of e.files) {
+        newIndex[f] = newIndex[f] || [];
+        if (newIndex[f].indexOf(e.path) === -1) {
+          newIndex[f].push(e.path);
+        }
+      }
+    }
+    await context.workspaceState.update(HISTORY_INDEX_KEY, newIndex);
+  } catch {
+    // ignore
+  }
 }
 
 function createHistoryFileName(date: Date, id: string): string {
@@ -206,6 +292,21 @@ async function pruneMissingHistoryEntries(
 
   if (valid.length !== entries.length) {
     await context.workspaceState.update(HISTORY_STATE_KEY, valid);
+    try {
+      // rebuild index from remaining valid entries
+      const newIndex: Record<string, string[]> = {};
+      for (const e of valid) {
+        for (const f of e.files) {
+          newIndex[f] = newIndex[f] || [];
+          if (newIndex[f].indexOf(e.path) === -1) {
+            newIndex[f].push(e.path);
+          }
+        }
+      }
+      await context.workspaceState.update(HISTORY_INDEX_KEY, newIndex);
+    } catch {
+      // ignore
+    }
   }
 
   return valid;

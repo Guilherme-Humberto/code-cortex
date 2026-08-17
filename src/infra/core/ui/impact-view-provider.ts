@@ -17,7 +17,9 @@ import { SyncKnowledgePayload } from '../sync/sync.types';
 import {
   clearHistoryEntries,
   listHistoryEntries,
-  saveHistoryEntry
+  saveHistoryEntry,
+  removeHistoryEntry,
+  HistoryEntry
 } from '../history/history.service';
 import { buildImpactAnalysisWebviewHtml } from './webviews/impact-analysis.webview';
 import { buildImpactLoadingWebviewHtml } from './webviews/impact-loading.webview';
@@ -162,8 +164,7 @@ export class ImpactViewProvider implements vscode.WebviewViewProvider {
           const choice = await vscode.window.showWarningMessage(
             'Apagar todo o histórico de consultas? Esta ação não pode ser desfeita.',
             { modal: true },
-            'Apagar',
-            'Cancelar'
+            'Apagar'
           );
 
           if (choice === 'Apagar') {
@@ -196,6 +197,25 @@ export class ImpactViewProvider implements vscode.WebviewViewProvider {
         return;
       case 'openHistory':
         await this.openWorkspaceFile(message.path);
+        return;
+      case 'removeHistory':
+        {
+          const path = message.path;
+          const choice = await vscode.window.showWarningMessage(
+            'Remover esta entrada do histórico? Esta ação não pode ser desfeita.',
+            { modal: true },
+            'Remover'
+          );
+
+          if (choice === 'Remover') {
+            try {
+              await removeHistoryEntry(this.context, path);
+            } catch (error) {
+              console.error('Failed to remove history entry', error);
+            }
+            await this.renderHistory();
+          }
+        }
         return;
       case 'searchDocs':
         await this.searchDocumentationByFile(message.files);
@@ -304,16 +324,37 @@ export class ImpactViewProvider implements vscode.WebviewViewProvider {
     const settings = await loadImpactSettings(this.context);
     const provider = settings.selectedProvider || 'copilot';
     const models = await vscode.lm.selectChatModels({ vendor: provider });
-    const tokenSavedNotice = (await getGithubToken(this.context))
-      ? ' (token salvo)'
-      : '';
+    const token = await getGithubToken(this.context);
+    const tokenSavedNotice = token ? ' (token salvo)' : '';
 
     this.view.webview.html = buildImpactSettingsWebviewHtml({
       models,
       selectedModelId: getSelectedModel(this.context),
       tokenSavedNotice,
+      tokenValue: token || null,
       settings
     });
+  }
+
+  public showHistoryForFile(
+    filePath: string,
+    entries: readonly HistoryEntry[]
+  ): void {
+    if (!this.view) {
+      return;
+    }
+
+    this.currentScreen = 'history';
+    this.view.webview.html = buildHistoryWebviewHtml(
+      this.view.webview,
+      entries,
+      `Filtrado por: ${filePath}`,
+      filePath
+    );
+  }
+
+  public async showFullHistory(): Promise<void> {
+    await this.renderHistory();
   }
 
   private getSelectedFiles(): string[] {

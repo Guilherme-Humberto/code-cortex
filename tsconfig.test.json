@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // For tests we enable jest typings and keep node types available
+    "types": ["node", "jest"]
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.test.ts",
+    "src/**/__tests__/**"
+  ],
+  "exclude": ["node_modules", "dist"]
+}

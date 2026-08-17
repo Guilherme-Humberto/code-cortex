@@ -5,10 +5,16 @@ import { createNonce } from './webview-utils';
 
 export function buildHistoryWebviewHtml(
   webview: vscode.Webview,
-  history: readonly HistoryEntry[]
+  history: readonly HistoryEntry[],
+  filterLabel?: string,
+  filterPath?: string
 ): string {
   const nonce = createNonce();
   const historyJson = JSON.stringify(history).replace(/</g, '\\u003c');
+  const filterPathJson = JSON.stringify(filterPath ?? null).replace(
+    /</g,
+    '\\u003c'
+  );
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -30,13 +36,16 @@ export function buildHistoryWebviewHtml(
     h1 { margin: 0; font-size: 18px; }
     .subtitle { margin: 6px 0 0; color: var(--vscode-descriptionForeground); line-height: 1.45; }
     .list { display: grid; gap: 10px; margin-top: 16px; }
-    .card { padding: 12px; border: 1px solid var(--vscode-panel-border); border-radius: 8px; background: color-mix(in srgb, var(--vscode-editor-background) 55%, transparent); cursor: pointer; text-align: left; }
+    .card { padding: 12px; border: 1px solid var(--vscode-panel-border); border-radius: 8px; background: color-mix(in srgb, var(--vscode-editor-background) 55%, transparent); cursor: pointer; text-align: left; position: relative; }
     .card:hover { background: var(--vscode-list-hoverBackground); }
     .card-title { font-weight: 600; }
     .card-meta { margin-top: 4px; color: var(--vscode-descriptionForeground); font-size: 12px; line-height: 1.45; }
     .files { margin-top: 8px; color: var(--vscode-descriptionForeground); font-size: 12px; opacity: 0.9; }
     .files > div { margin-bottom: 4px; }
     .empty { padding: 18px 0; color: var(--vscode-descriptionForeground); }
+    .highlight { background: color-mix(in srgb, rgba(255,255,0,0.25) 60%, transparent); padding: 2px 4px; border-radius: 3px; }
+    .remove-btn { position: absolute; top: 8px; right: 8px; border: 1px solid var(--vscode-panel-border); background: transparent; color: var(--vscode-errorForeground); cursor: pointer; padding: 6px; border-radius: 6px; }
+    .remove-btn:hover { background: var(--vscode-list-hoverBackground); }
   </style>
 </head>
 <body>
@@ -49,12 +58,14 @@ export function buildHistoryWebviewHtml(
   </header>
   <main>
     <h1>Consultas salvas</h1>
-    <p class="subtitle">Esta lista reúne análises de impacto e pesquisas na base de conhecimento. O conteúdo permanece em <strong>code-cortex/_history</strong> e os metadados no workspaceState.</p>
+    <p class="subtitle">Esta lista reúne pesquisas na base de conhecimento.</p>
+    ${filterLabel ? `<p class="subtitle">${filterLabel}</p>` : ''}
     <div class="list" id="list"></div>
   </main>
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
     const history = ${historyJson};
+    const filterPath = ${filterPathJson};
     const list = document.getElementById('list');
 
     function formatDate(value) {
@@ -78,9 +89,12 @@ export function buildHistoryWebviewHtml(
 
       for (let i = 0; i < history.length; i++) {
         const entry = history[i];
-        const card = document.createElement('button');
+        const card = document.createElement('div');
         card.className = 'card';
+        card.tabIndex = 0;
+        card.setAttribute('role', 'button');
         card.addEventListener('click', () => vscode.postMessage({ command: 'openHistory', path: entry.path }));
+        card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { vscode.postMessage({ command: 'openHistory', path: entry.path }); } });
 
         const title = document.createElement('div');
         title.className = 'card-title';
@@ -97,7 +111,15 @@ export function buildHistoryWebviewHtml(
         const maxShowFiles = 3;
         for (let i = 0; i < Math.min(fileList.length, maxShowFiles); i++) {
           const f = document.createElement('div');
-          f.textContent = fileList[i];
+          const fileName = fileList[i];
+          if (filterPath && fileName === filterPath) {
+            const span = document.createElement('span');
+            span.className = 'highlight';
+            span.textContent = fileName;
+            f.appendChild(span);
+          } else {
+            f.textContent = fileName;
+          }
           files.appendChild(f);
         }
         if (fileList.length === 0) {
@@ -111,6 +133,17 @@ export function buildHistoryWebviewHtml(
         card.appendChild(title);
         card.appendChild(meta);
         card.appendChild(files);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-btn';
+        removeBtn.type = 'button';
+        removeBtn.title = 'Remover entrada';
+        removeBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"></path></svg>';
+        removeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          vscode.postMessage({ command: 'removeHistory', path: entry.path });
+        });
+        card.appendChild(removeBtn);
         list.appendChild(card);
       }
     }

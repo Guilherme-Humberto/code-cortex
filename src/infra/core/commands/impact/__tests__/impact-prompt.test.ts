@@ -46,4 +46,24 @@ describe('impact-prompt', () => {
     expect(prompt.length).toBeLessThanOrEqual(3500 * 4);
     expect(prompt).toContain('Contexto adicional removido');
   });
+
+  it('redacts sensitive tokens from file content', () => {
+    const prompt = buildImpactPrompt({
+      files: [
+        {
+          path: 'secrets.txt',
+          language: 'text',
+          content: 'this contains ghp_abcdefghijklmnopqrstuvxyz',
+          truncated: false
+        }
+      ]
+    });
+
+    expect(prompt).toContain('[REDACTED]');
+  });
+
+  it('shows placeholder when no readable files provided', () => {
+    const prompt = buildImpactPrompt({ files: [] });
+    expect(prompt).toContain('[Nenhum conteúdo legível foi encontrado.]');
+  });
 });
