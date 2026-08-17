@@ -7,12 +7,19 @@ export function buildImpactAnalysisWebviewHtml(
   markdown: string,
   totalTokens: number,
   modelName: string,
-  files: readonly string[]
+  files: readonly string[],
+  kind?: string,
+  pageTitle?: string
 ): string {
   const nonce = createNonce();
   const markdownJson = serializeWebviewJson(markdown);
   const modelJson = serializeWebviewJson(modelName);
   const filesJson = serializeWebviewJson(files);
+  const kindJson = JSON.stringify(kind ?? null).replace(/</g, '\u003c');
+  const pageTitleJson = JSON.stringify(pageTitle ?? null).replace(
+    /</g,
+    '\u003c'
+  );
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -25,7 +32,7 @@ export function buildImpactAnalysisWebviewHtml(
     :root { color-scheme: light dark; }
     * { box-sizing: border-box; }
     body { margin: 0; padding: 12px; color: var(--vscode-foreground); background: var(--vscode-sideBar-background); font-family: var(--vscode-font-family); font-size: 13px; }
-    .topbar { display: grid; grid-template-columns: 36px minmax(0, 1fr) 28px 28px; align-items: center; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--vscode-panel-border); }
+    .topbar { display: grid; grid-template-columns: 36px minmax(0, 1fr) 28px; align-items: center; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--vscode-panel-border); }
     .back { width: 36px; min-height: 36px; padding: 3px; background: transparent; color: var(--vscode-textLink-foreground); border: 1px solid var(--vscode-panel-border); font-size: 18px; }
     .back:hover { background: var(--vscode-list-hoverBackground); }
     .title-group { min-width: 0; }
@@ -51,30 +58,40 @@ export function buildImpactAnalysisWebviewHtml(
   <header class="topbar">
     <button id="back" class="back" aria-label="Voltar" title="Voltar">←</button>
     <div class="title-group">
-      <div class="title">Análise de impacto</div>
+      <div id="page-title" class="title">Análise de impacto</div>
       <div id="model" class="model"></div>
     </div>
     <button id="copy" class="copy-button" aria-label="Copiar resultado" title="Copiar resultado">⧉</button>
-    <button id="save" class="save-button" aria-label="Salvar no histórico" title="Salvar no histórico">⇩</button>
   </header>
   <main id="content" class="content" aria-live="polite"></main>
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
     const markdown = ${markdownJson};
     const files = ${filesJson};
+    const kind = ${kindJson};
+    const pageTitle = ${pageTitleJson};
     document.getElementById('model').textContent = ${modelJson} + ' | ' + ${totalTokens.toLocaleString('pt-BR')} + ' tokens';
     document.getElementById('model').title = ${modelJson};
     document.getElementById('back').addEventListener('click', () => vscode.postMessage({ command: 'back' }));
 
-    // hide copy/save when there is no valid result (empty or an error message)
+    // set page title according to scenario
+    try {
+      if (pageTitle) {
+        document.getElementById('page-title').textContent = pageTitle;
+      } else if (kind === 'knowledge-search') {
+        document.getElementById('page-title').textContent = 'Pesquisa na Base de Conhecimento';
+      } else {
+        document.getElementById('page-title').textContent = 'Análise de impacto';
+      }
+    } catch (e) {}
+
+    // hide copy when there is no valid result (empty or an error message)
     const normalized = (markdown || '').toString().trim();
     const isError = !normalized || /^##\s*Falha/i.test(normalized) || /Nenhum modelo disponível/i.test(normalized);
     if (isError) {
       document.getElementById('copy').style.display = 'none';
-      document.getElementById('save').style.display = 'none';
     } else {
       document.getElementById('copy').addEventListener('click', () => vscode.postMessage({ command: 'copyResult', content: markdown }));
-      document.getElementById('save').addEventListener('click', () => vscode.postMessage({ command: 'saveResult', content: markdown, modelName: ${modelJson}, totalTokens: ${totalTokens}, files }));
     }
 
     function escapeHtml(value) {

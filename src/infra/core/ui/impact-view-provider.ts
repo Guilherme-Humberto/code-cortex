@@ -112,7 +112,9 @@ export class ImpactViewProvider implements vscode.WebviewViewProvider {
       markdown,
       totalTokens,
       modelName,
-      files
+      files,
+      historySave?.kind,
+      historySave?.title
     );
 
     if (this.lastHistorySave) {
