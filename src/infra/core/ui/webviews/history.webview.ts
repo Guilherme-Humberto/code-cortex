@@ -36,7 +36,9 @@ export function buildHistoryWebviewHtml(
     h1 { margin: 0; font-size: 18px; }
     .subtitle { margin: 6px 0 0; color: var(--vscode-descriptionForeground); line-height: 1.45; }
     .list { display: grid; gap: 10px; margin-top: 16px; }
-    .card { padding: 12px; border: 1px solid var(--vscode-panel-border); border-radius: 8px; background: color-mix(in srgb, var(--vscode-editor-background) 55%, transparent); cursor: pointer; text-align: left; position: relative; }
+    .date-sep { margin: 18px 0 6px; text-align: center; color: var(--vscode-descriptionForeground); font-size: 13px; font-weight: 600; }
+    .date-sep::before { content: ''; display: block; height: 1px; background: var(--vscode-panel-border); margin-bottom: 8px; opacity: 0.9; }
+    .card { padding: 12px 48px 12px 12px; border: 1px solid var(--vscode-panel-border); border-radius: 8px; background: color-mix(in srgb, var(--vscode-editor-background) 55%, transparent); cursor: pointer; text-align: left; position: relative; }
     .card:hover { background: var(--vscode-list-hoverBackground); }
     .card-title { font-weight: 600; }
     .card-meta { margin-top: 4px; color: var(--vscode-descriptionForeground); font-size: 12px; line-height: 1.45; }
@@ -44,7 +46,7 @@ export function buildHistoryWebviewHtml(
     .files > div { margin-bottom: 4px; }
     .empty { padding: 18px 0; color: var(--vscode-descriptionForeground); }
     .highlight { background: color-mix(in srgb, rgba(255,255,0,0.25) 60%, transparent); padding: 2px 4px; border-radius: 3px; }
-    .remove-btn { position: absolute; top: 8px; right: 8px; border: 1px solid var(--vscode-panel-border); background: transparent; color: var(--vscode-errorForeground); cursor: pointer; padding: 6px; border-radius: 6px; }
+    .remove-btn { position: absolute; top: 12px; right: 12px; border: 1px solid var(--vscode-panel-border); background: transparent; color: var(--vscode-errorForeground); cursor: pointer; padding: 6px; border-radius: 6px; }
     .remove-btn:hover { background: var(--vscode-list-hoverBackground); }
   </style>
 </head>
@@ -87,8 +89,22 @@ export function buildHistoryWebviewHtml(
         return;
       }
 
+      let prevDate = null;
       for (let i = 0; i < history.length; i++) {
         const entry = history[i];
+        const dateKey = (function(v) {
+          try {
+            return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' }).format(new Date(v));
+          } catch { return String(v); }
+        })(entry.createdAt);
+
+        if (dateKey !== prevDate) {
+          const sep = document.createElement('div');
+          sep.className = 'date-sep';
+          sep.textContent = dateKey;
+          list.appendChild(sep);
+          prevDate = dateKey;
+        }
         const card = document.createElement('div');
         card.className = 'card';
         card.tabIndex = 0;
@@ -99,7 +115,7 @@ export function buildHistoryWebviewHtml(
         const title = document.createElement('div');
         title.className = 'card-title';
         const savedName = (entry.path || '').split('/').pop() || entry.title || 'Consulta sem título';
-        title.textContent = (i + 1) + ') ' + savedName;
+        title.textContent = (history.length - i) + ') ' + savedName;
 
         const meta = document.createElement('div');
         meta.className = 'card-meta';

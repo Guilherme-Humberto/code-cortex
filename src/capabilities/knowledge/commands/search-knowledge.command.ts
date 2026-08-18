@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 
 import { DisposableStore } from '@/infra/core/bootstrap/disposable-store';
 import { registerDisposable } from '@/infra/core/utils/register-disposable.utils';
-import { MEMORY_PATH } from '@/infra/core/constants';
+import { IMPACT_STATE_KEY, MEMORY_PATH } from '@/infra/core/constants';
 import { ImpactViewProvider } from '@/infra/core/ui/impact-view-provider';
 import { estimateTokenCount } from '@/infra/core/utils/token-budget.util';
 import { collectSelectedFileContext } from '@/infra/core/context/selected-file-context';
@@ -11,8 +11,6 @@ import {
   createFilesKnowledgePrompt,
   createKnowledgePrompt
 } from './knowledge-prompt';
-
-const IMPACT_STATE_KEY = 'impact.selection';
 
 /**
  * Registra o comando responsável por consultar
@@ -26,8 +24,6 @@ export function registerSearchKnowledgeCommand(
     'codeCortex_knowledge_search',
     async () => {
       const editor = vscode.window.activeTextEditor;
-
-      console.log('Active editor:', editor);
 
       if (!editor) {
         vscode.window.showWarningMessage(

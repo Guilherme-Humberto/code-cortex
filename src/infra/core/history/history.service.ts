@@ -41,9 +41,9 @@ export async function saveHistoryEntry(
     throw new Error('Nenhum workspace encontrado.');
   }
 
+  // garante que o diretório de histórico existe antes de gravar
   const directory = vscode.Uri.joinPath(workspace.uri, HISTORY_DIRECTORY);
   await vscode.workspace.fs.createDirectory(directory);
-  // always create a new history entry (no contentHash dedupe)
 
   const id = createHistoryId();
   const createdAt = new Date().toISOString();
@@ -77,12 +77,13 @@ export async function saveHistoryEntry(
     path: `${HISTORY_DIRECTORY}/${fileName}`
   };
 
+  // mantém o estado ordenado por data e evita duplicatas pelo mesmo path
   await context.workspaceState.update(HISTORY_STATE_KEY, [
     entry,
     ...getHistoryState(context).filter(item => item.path !== entry.path)
   ]);
 
-  // update fast lookup index by file
+  // atualiza o índice rápido por arquivo para evitar scan completo
   try {
     const index = context.workspaceState.get<Record<string, string[]>>(
       HISTORY_INDEX_KEY,
@@ -120,31 +121,6 @@ export async function listHistoryEntries(
   return typeof options.limit === 'number'
     ? sorted.slice(0, options.limit)
     : sorted;
-}
-
-export async function listHistoryEntriesByFile(
-  context: vscode.ExtensionContext,
-  filePath: string
-): Promise<HistoryEntry[]> {
-  const workspace = vscode.workspace.workspaceFolders?.[0];
-  if (!workspace) {
-    return [];
-  }
-
-  const state = await ensureHydratedHistoryEntries(context, workspace.uri);
-  const index = context.workspaceState.get<Record<string, string[]>>(
-    HISTORY_INDEX_KEY,
-    {}
-  );
-  const paths = index[filePath] || [];
-  if (!paths.length) {
-    // fallback to scanning state
-    return state.filter(
-      e => Array.isArray(e.files) && e.files.indexOf(filePath) !== -1
-    );
-  }
-
-  return state.filter(e => paths.indexOf(e.path) !== -1);
 }
 
 export async function clearHistoryEntries(
@@ -297,9 +273,9 @@ async function pruneMissingHistoryEntries(
       const newIndex: Record<string, string[]> = {};
       for (const e of valid) {
         for (const f of e.files) {
-          newIndex[f] = newIndex[f] || [];
-          if (newIndex[f].indexOf(e.path) === -1) {
-            newIndex[f].push(e.path);
+          newIndex[f] ??= [];
+          if (!newIndex[f]!.includes(e.path)) {
+            newIndex[f]!.push(e.path);
           }
         }
       }
@@ -391,5 +367,3 @@ function firstValue(values?: string[]): string {
 function escapeFrontmatterValue(value: string): string {
   return value.replace(/\n/g, ' ').trim();
 }
-
-// deduplication by contentHash removed

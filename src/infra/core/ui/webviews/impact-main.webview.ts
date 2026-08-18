@@ -101,7 +101,9 @@ export function buildImpactMainWebviewHtml(
       <p class="subtitle"><strong>Arquivos em foco</strong> para análise funcional de um fluxo ou módulo.</p>
       <div class="actions">
         <button class="secondary quick-question" data-question="Explique o que este código faz funcionalmente.">O que este código faz?</button>
-        <button class="secondary quick-question" data-question="Quais impactos funcionais existem neste fluxo ou módulo?">Quais impactos existem?</button>
+        <button class="secondary quick-question" data-question="Quais regras de negócio este trecho implementa ou depende?">Regras de negócio</button>
+        <button class="secondary quick-question" data-question="Quais são os pontos de entrada, saída e integração deste fluxo?">Entradas e saídas</button>
+        <button class="secondary quick-question" data-question="Quais riscos, efeitos colaterais ou dependências devo observar aqui?">Riscos e dependências</button>
       </div>
       <div class="question">
         <input id="question" type="text" placeholder="Pergunte sobre os arquivos em foco" aria-label="Pergunta sobre os arquivos em foco" />
@@ -178,7 +180,7 @@ export function buildImpactMainWebviewHtml(
         row.className = 'history-row';
         const title = document.createElement('div');
         const savedName = (entry.path || '').split('/').pop() || entry.title || entry.path;
-        title.textContent = (idx + 1) + ') ' + savedName;
+        title.textContent = (history.length - idx) + ') ' + savedName;
         title.style.fontWeight = '600';
         title.title = savedName;
 

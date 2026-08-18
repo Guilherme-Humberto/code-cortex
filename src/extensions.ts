@@ -14,10 +14,9 @@ const workspaceInitializer = new WorkspaceInitializer();
 export async function activate(
   context: vscode.ExtensionContext
 ): Promise<void> {
-  console.log('Code Cortex extension is activating...');
-
   const workspace = workspaceInitializer.getPreferredWorkspace();
 
+  // registra o provider da view ou aguarda um workspace ser aberto
   if (workspace) {
     workspaceInitializer.initializeWorkspace(workspace, context);
   } else {
@@ -26,23 +25,17 @@ export async function activate(
 
   registerSearchKnowledgeCommand(context, disposables);
   registerCoreCommands(context);
-
-  console.log('Code Cortex extension activated.');
 }
 
 /**
  * Finaliza recursos da extensão.
  */
 export async function deactivate(): Promise<void> {
-  console.log('Code Cortex extension deactivating...');
-
   try {
     if (!disposables.isDisposed) {
       disposables.dispose();
     }
   } catch (error) {
-    console.error('Error disposing extension resources:', error);
+    console.error('Falha ao liberar recursos da extensão:', error);
   }
-
-  console.log('Code Cortex extension deactivated.');
 }

@@ -11,9 +11,8 @@ import {
 import { runImpactAnalysis } from './impact-analysis.service';
 import { listHistoryEntries } from '../../history/history.service';
 import { findMarkdownDocuments } from '@/capabilities/knowledge/commands/knowledge-context';
-import { MEMORY_PATH } from '../../constants';
+import { IMPACT_STATE_KEY, MEMORY_PATH } from '../../constants';
 
-const IMPACT_STATE_KEY = 'impact.selection';
 const SELECTED_MODEL_KEY = 'knowledge.selectedModelId';
 
 export function registerImpactCommands(ctx: vscode.ExtensionContext): void {

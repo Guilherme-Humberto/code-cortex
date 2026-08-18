@@ -9,9 +9,7 @@ export class WorkspaceInitializer {
     workspace: vscode.WorkspaceFolder,
     context: vscode.ExtensionContext
   ): Promise<void> {
-    console.log(`Initializing workspace: ${workspace.uri.fsPath}`);
-
-    // Registrar provider da view tipo webview (painel lateral)
+    // retainContextWhenHidden evita recarregar o estado da webview ao esconder o painel
     const impactViewProvider = new ImpactViewProvider(context);
     context.subscriptions.push(
       vscode.window.registerWebviewViewProvider(
@@ -29,8 +27,7 @@ export class WorkspaceInitializer {
    * é ativada sem nenhuma pasta aberta.
    */
   registerWorkspaceListener(context: vscode.ExtensionContext): void {
-    console.log('No workspace available. Waiting for workspace changes.');
-
+    // extensão ativada sem pasta aberta — aguarda o usuário abrir um workspace
     const disposable = vscode.workspace.onDidChangeWorkspaceFolders(event => {
       const workspace = event.added[0];
 

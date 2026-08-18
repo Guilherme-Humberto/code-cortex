@@ -26,14 +26,34 @@ import { buildImpactLoadingWebviewHtml } from './webviews/impact-loading.webview
 import { buildImpactMainWebviewHtml } from './webviews/impact-main.webview';
 import { buildHistoryWebviewHtml } from './webviews/history.webview';
 import { buildImpactSettingsWebviewHtml } from './webviews/impact-settings.webview';
-
-const IMPACT_STATE_KEY = 'impact.selection';
+import { IMPACT_STATE_KEY } from '../constants';
 
 type ScreenMode = 'main' | 'history' | 'analysis' | 'loading' | 'settings';
 
 interface HistorySaveRequest {
   readonly kind: 'impact-analysis' | 'knowledge-search' | 'manual';
   readonly title: string;
+}
+
+// Tipo das mensagens recebidas da webview — evita uso de `any` no handler
+interface WebviewMessage {
+  command: string;
+  path?: string;
+  content?: string;
+  token?: string;
+  files?: string[];
+  question?: string;
+  modelId?: string;
+  modelName?: string;
+  totalTokens?: number;
+  provider?: string;
+  syncMode?: string;
+  repoUrl?: string;
+  localPath?: string;
+  product?: string;
+  project?: string;
+  selectedModel?: string;
+  selectedProvider?: string;
 }
 
 export class ImpactViewProvider implements vscode.WebviewViewProvider {
@@ -71,7 +91,7 @@ export class ImpactViewProvider implements vscode.WebviewViewProvider {
 
     await this.renderMain();
 
-    webviewView.webview.onDidReceiveMessage(async (message: any) => {
+    webviewView.webview.onDidReceiveMessage(async (message: WebviewMessage) => {
       await this.handleMessage(message);
     });
   }
@@ -138,7 +158,7 @@ export class ImpactViewProvider implements vscode.WebviewViewProvider {
     );
   }
 
-  private async handleMessage(message: any): Promise<void> {
+  private async handleMessage(message: WebviewMessage): Promise<void> {
     switch (message.command) {
       case 'open':
         await this.openWorkspaceFile(message.path);
@@ -162,65 +182,24 @@ export class ImpactViewProvider implements vscode.WebviewViewProvider {
         await this.renderMain();
         return;
       case 'clearHistory':
-        {
-          const choice = await vscode.window.showWarningMessage(
-            'Apagar todo o histórico de consultas? Esta ação não pode ser desfeita.',
-            { modal: true },
-            'Apagar'
-          );
-
-          if (choice === 'Apagar') {
-            await clearHistoryEntries(this.context);
-            await this.renderHistory();
-          }
-        }
+        await this.handleClearHistory();
         return;
       case 'copyResult':
         await vscode.env.clipboard.writeText(message.content || '');
         vscode.window.showInformationMessage('Resultado copiado.');
         return;
       case 'saveResult':
-        await this.persistHistoryEntry(message.content || '', {
-          kind: this.lastHistorySave?.metadata.kind || 'manual',
-          title: this.lastHistorySave?.metadata.title || 'Consulta manual',
-          modelName:
-            message.modelName ||
-            this.lastHistorySave?.metadata.modelName ||
-            'Modelo não identificado',
-          totalTokens:
-            Number(message.totalTokens) ||
-            this.lastHistorySave?.metadata.totalTokens ||
-            0,
-          files: Array.isArray(message.files)
-            ? message.files
-            : this.lastHistorySave?.metadata.files || []
-        });
+        await this.handleSaveResult(message);
         vscode.window.showInformationMessage('Consulta salva no histórico.');
         return;
       case 'openHistory':
         await this.openWorkspaceFile(message.path);
         return;
       case 'removeHistory':
-        {
-          const path = message.path;
-          const choice = await vscode.window.showWarningMessage(
-            'Remover esta entrada do histórico? Esta ação não pode ser desfeita.',
-            { modal: true },
-            'Remover'
-          );
-
-          if (choice === 'Remover') {
-            try {
-              await removeHistoryEntry(this.context, path);
-            } catch (error) {
-              console.error('Failed to remove history entry', error);
-            }
-            await this.renderHistory();
-          }
-        }
+        await this.handleRemoveHistory(message);
         return;
       case 'searchDocs':
-        await this.searchDocumentationByFile(message.files);
+        await this.searchDocumentationByFile(message.files ?? []);
         return;
       case 'searchFilesDocs':
         await vscode.commands.executeCommand(
@@ -238,38 +217,7 @@ export class ImpactViewProvider implements vscode.WebviewViewProvider {
         await this.handleSaveSettings(message);
         return;
       case 'requestModels':
-        {
-          const provider =
-            message.provider ||
-            (await loadImpactSettings(this.context)).selectedProvider ||
-            'copilot';
-          try {
-            const models = await vscode.lm.selectChatModels({
-              vendor: provider
-            });
-            const simplified = (models || [])
-              .slice()
-              .sort((a: any, b: any) =>
-                ('' + (a.name || '')).localeCompare('' + (b.name || ''))
-              )
-              .map((m: any) => ({ id: m.id, name: m.name }));
-            if (this.view) {
-              this.view.webview.postMessage({
-                command: 'models',
-                models: simplified
-              });
-            }
-          } catch (error) {
-            console.error(
-              'Failed to fetch models for provider',
-              provider,
-              error
-            );
-            if (this.view) {
-              this.view.webview.postMessage({ command: 'models', models: [] });
-            }
-          }
-        }
+        await this.handleRequestModels(message);
         return;
       case 'saveModel':
         await saveSelectedModel(this.context, message.modelId);
@@ -423,7 +371,7 @@ export class ImpactViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private async handleSaveSettings(message: any): Promise<void> {
+  private async handleSaveSettings(message: WebviewMessage): Promise<void> {
     try {
       await saveImpactSettings(this.context, {
         syncMode: message.syncMode,
@@ -475,6 +423,72 @@ export class ImpactViewProvider implements vscode.WebviewViewProvider {
       case 'main':
       default:
         await this.renderMain();
+    }
+  }
+
+  private async handleClearHistory(): Promise<void> {
+    const choice = await vscode.window.showWarningMessage(
+      'Apagar todo o histórico de consultas? Esta ação não pode ser desfeita.',
+      { modal: true },
+      'Apagar'
+    );
+    if (choice === 'Apagar') {
+      await clearHistoryEntries(this.context);
+      await this.renderHistory();
+    }
+  }
+
+  private async handleSaveResult(message: WebviewMessage): Promise<void> {
+    await this.persistHistoryEntry(message.content || '', {
+      kind: this.lastHistorySave?.metadata.kind || 'manual',
+      title: this.lastHistorySave?.metadata.title || 'Consulta manual',
+      modelName:
+        message.modelName ||
+        this.lastHistorySave?.metadata.modelName ||
+        'Modelo não identificado',
+      totalTokens:
+        Number(message.totalTokens) ||
+        this.lastHistorySave?.metadata.totalTokens ||
+        0,
+      files: Array.isArray(message.files)
+        ? message.files
+        : this.lastHistorySave?.metadata.files || []
+    });
+  }
+
+  private async handleRemoveHistory(message: WebviewMessage): Promise<void> {
+    const { path } = message;
+    const choice = await vscode.window.showWarningMessage(
+      'Remover esta entrada do histórico? Esta ação não pode ser desfeita.',
+      { modal: true },
+      'Remover'
+    );
+    if (choice === 'Remover') {
+      try {
+        if (path) {
+          await removeHistoryEntry(this.context, path);
+        }
+      } catch (error) {
+        console.error('Falha ao remover entrada do histórico:', error);
+      }
+      await this.renderHistory();
+    }
+  }
+
+  private async handleRequestModels(message: WebviewMessage): Promise<void> {
+    const provider =
+      message.provider ||
+      (await loadImpactSettings(this.context)).selectedProvider ||
+      'copilot';
+    try {
+      const models = await vscode.lm.selectChatModels({ vendor: provider });
+      const sorted = [...(models ?? [])]
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map(m => ({ id: m.id, name: m.name }));
+      this.view?.webview.postMessage({ command: 'models', models: sorted });
+    } catch (error) {
+      console.error('Falha ao buscar modelos para o provider', provider, error);
+      this.view?.webview.postMessage({ command: 'models', models: [] });
     }
   }
 

@@ -87,12 +87,6 @@ export function getSelectedModel(
   return context.workspaceState.get<string>(SELECTED_MODEL_KEY);
 }
 
-export function getSelectedProvider(
-  context: vscode.ExtensionContext
-): string | undefined {
-  return context.workspaceState.get<string>(SELECTED_PROVIDER_KEY) || 'copilot';
-}
-
 export async function saveLocalPath(
   context: vscode.ExtensionContext,
   localPath: string

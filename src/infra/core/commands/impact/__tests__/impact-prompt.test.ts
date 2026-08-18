@@ -5,7 +5,8 @@ describe('impact-prompt', () => {
     knowledgeDocs: [
       {
         path: '/docs/cancelamento.md',
-        content: '# Regra: cancelamento\nO cancelamento deve ser registrado em auditoria.'
+        content:
+          '# Regra: cancelamento\nO cancelamento deve ser registrado em auditoria.'
       }
     ],
     files: [
@@ -24,7 +25,9 @@ describe('impact-prompt', () => {
     expect(prompt).toContain('src/cancel.ts');
     expect(prompt).toContain('export function cancel() {}');
     expect(prompt).toContain('cancelamento.md');
-    expect(prompt).toContain('O cancelamento deve ser registrado em auditoria.');
+    expect(prompt).toContain(
+      'O cancelamento deve ser registrado em auditoria.'
+    );
     expect(prompt).toContain('Não altere, crie, exclua');
     expect(prompt).toContain('Não dê feedback de qualidade');
   });
@@ -76,4 +79,3 @@ describe('impact-prompt', () => {
     expect(prompt).toContain('[Nenhum conteúdo legível foi encontrado.]');
   });
 });
-

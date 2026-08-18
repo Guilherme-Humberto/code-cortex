@@ -34,6 +34,7 @@ export async function collectSelectedFileContext(
       const bytes = await vscode.workspace.fs.readFile(uri);
       const content = Buffer.from(bytes).toString('utf8');
 
+      // byte nulo indica arquivo binário — ignorado para evitar ruído no prompt
       if (content.includes('\u0000')) {
         continue;
       }
