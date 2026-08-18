@@ -7,7 +7,7 @@ import {
 
 describe('impact-analysis.service', () => {
   const input = {
-    objective: 'Avaliar o impacto do cancelamento.',
+    knowledgeDocs: [],
     files: [
       {
         path: 'src/cancel.ts',

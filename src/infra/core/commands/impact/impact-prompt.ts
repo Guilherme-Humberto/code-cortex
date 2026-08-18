@@ -1,18 +1,18 @@
+import * as path from 'node:path';
+
 import {
   SELECTED_FILE_CONTEXT_LIMITS,
   SelectedFileContext
 } from '../../context/selected-file-context';
 import { redactSensitiveContent } from '../../utils/redact-sensitive.util';
+import { KnowledgeDocument } from '@/capabilities/knowledge/commands/knowledge-context';
 
 export interface ImpactPromptInput {
-  readonly objective?: string;
   readonly files: readonly SelectedFileContext[];
+  readonly knowledgeDocs: readonly KnowledgeDocument[];
 }
 
 export function buildImpactPrompt(input: ImpactPromptInput): string {
-  const objective =
-    input.objective?.trim() ||
-    'Avaliar possíveis impactos entre os arquivos selecionados.';
   const files = input.files
     .map(file => {
       const redactedContent = redactSensitiveContent(file.content, file.path);
@@ -24,43 +24,47 @@ export function buildImpactPrompt(input: ImpactPromptInput): string {
     })
     .join('\n\n');
 
-  const prompt = `Você é um consultor de software fazendo uma análise de impacto econômica e somente de leitura.
+  const knowledgeContext = input.knowledgeDocs
+    .map(
+      doc =>
+        `### Documento: ${path.basename(doc.path)}\n${redactSensitiveContent(doc.content, doc.path)}`
+    )
+    .join('\n\n');
+
+  const prompt = `Você é um analisador de impacto em modo somente leitura.
 
 RESTRIÇÕES OBRIGATÓRIAS E INVIOLÁVEIS:
-- Não altere, crie, exclua ou sugira aplicar alterações em nenhum arquivo.
-- Não escreva código e não produza patches, diffs ou comandos de edição.
-- Responda exclusivamente como consulta baseada no contexto fornecido.
-- Consulte somente os arquivos listados em "Arquivos selecionados" abaixo.
-- Não consulte, infira ou solicite informações de outros arquivos do workspace.
-- Não use arquivos fora do diretório permitido nem conhecimento externo para preencher lacunas.
-- Se o contexto não for suficiente, declare que não é possível concluir com segurança.
+- Não altere, crie, exclua ou sugira alterações em nenhum arquivo.
+- Não escreva código, patches, diffs ou instruções de edição.
+- Não dê feedback de qualidade, sugestões de melhoria ou recomendações de testes genéricos.
+- Analise EXCLUSIVAMENTE a relação entre os arquivos em foco e as regras documentadas na Base de Conhecimento.
+- Não use conhecimento externo para preencher lacunas de documentação.
+- Não consulte nem infira sobre arquivos fora dos fornecidos.
 
-Objetivo: ${objective}
+TAREFA:
+Verifique se os arquivos em foco violam ou impactam alguma regra documentada na Base de Conhecimento Funcional.
 
-Use somente o contexto fornecido. Não invente dependências ou comportamento.
-Se uma conclusão não puder ser confirmada, marque-a como hipótese.
-Seja conciso: priorize relações entre arquivos, riscos e testes.
+Responda com EXATAMENTE UMA das três saídas:
+- SAÍDA A — Sem impacto: nenhuma regra documentada é afetada.
+- SAÍDA B — Com impacto: uma ou mais regras documentadas são afetadas. Cite o documento de origem e o conflito específico.
+- SAÍDA C — Informação insuficiente: a documentação não cobre os comportamentos em análise. Indique exatamente qual gap impede a conclusão.
 
-Arquivos selecionados:
+## Arquivos em foco
 ${files || '[Nenhum conteúdo legível foi encontrado.]'}
 
+## Base de Conhecimento Funcional
+${knowledgeContext || '[Nenhuma documentação encontrada em code-cortex/knowledge.]'}
+
 Responda em português brasileiro, neste formato:
-## Resumo
-Uma síntese em até 3 frases.
 
-## Impactos confirmados
-- arquivo/símbolo -> consequência
+## Resultado
+[Sem impacto | Com impacto | Informação insuficiente]
 
-## Hipóteses e pontos para validar
-- hipótese -> como validar
+## Justificativa
+[Com base nas regras documentadas ou no gap identificado.]
 
-## Riscos
-- risco (severidade: baixa, média ou alta) -> mitigação
-
-## Testes recomendados
-- teste ou verificação objetiva
-
-Não proponha alterações de código completas. Esta etapa serve apenas para orientar a investigação.`;
+## Regras consultadas
+- [nome do documento] -> [regra analisada]`;
 
   return trimPromptToBudget(
     prompt,

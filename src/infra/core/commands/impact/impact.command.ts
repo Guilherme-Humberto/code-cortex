@@ -10,6 +10,8 @@ import {
 } from '../../context/file-selection';
 import { runImpactAnalysis } from './impact-analysis.service';
 import { listHistoryEntries } from '../../history/history.service';
+import { findMarkdownDocuments } from '@/capabilities/knowledge/commands/knowledge-context';
+import { MEMORY_PATH } from '../../constants';
 
 const IMPACT_STATE_KEY = 'impact.selection';
 const SELECTED_MODEL_KEY = 'knowledge.selectedModelId';
@@ -268,16 +270,27 @@ async function executeImpactAnalysis(
           throw new Error('Nenhum arquivo legível foi encontrado.');
         }
 
+        progress.report({ message: 'Consultando a base de conhecimento...' });
+        const knowledgeFolder = vscode.Uri.joinPath(
+          workspace.uri,
+          MEMORY_PATH,
+          'knowledge'
+        );
+        const knowledgeDocs = await findMarkdownDocuments(knowledgeFolder);
+        if (knowledgeDocs.length === 0) {
+          ImpactViewProvider.current?.showAnalysis(
+            '## Análise de Impacto indisponível\n\nNenhuma documentação foi encontrada em `code-cortex/knowledge`.\n\nAdicióne arquivos Markdown à base de conhecimento para que o modelo possa comparar as alterações com as regras documentadas.',
+            0
+          );
+          return;
+        }
+
         progress.report({ message: 'Consultando o modelo...' });
         const tokenSource = new vscode.CancellationTokenSource();
         try {
           const result = await runImpactAnalysis(
             ctx,
-            {
-              objective:
-                'Identificar impactos técnicos e pontos de validação entre os arquivos selecionados.',
-              files
-            },
+            { files, knowledgeDocs },
             tokenSource.token,
             modelId
           );
