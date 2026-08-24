@@ -1,7 +1,7 @@
 {
   "name": "code-cortex",
   "displayName": "CodeCortex",
-  "description": "CodeCortex — contexto controlado para entender código, consultar documentação e analisar impactos com o Copilot.",
+  "description": "CodeCortex — extensão VS Code para análise de código, pesquisas de conhecimento e avaliações de impacto do projeto.",
   "version": "0.0.1",
   "publisher": "guilherme-local",
   "author": {

@@ -2,9 +2,18 @@ import * as vscode from 'vscode';
 
 import { DisposableStore } from '@/infra/core/bootstrap/disposable-store';
 import { registerDisposable } from '@/infra/core/utils/register-disposable.utils';
-import { IMPACT_STATE_KEY, MEMORY_PATH } from '@/infra/core/constants';
+import {
+  IMPACT_STATE_KEY,
+  MEMORY_PATH,
+  SELECTED_MODEL_KEY,
+  SELECTED_PROVIDER_KEY
+} from '@/infra/core/constants';
 import { ImpactViewProvider } from '@/infra/core/ui/impact-view-provider';
 import { estimateTokenCount } from '@/infra/core/utils/token-budget.util';
+import {
+  clearOngoingRequest,
+  setOngoingRequest
+} from '@/infra/core/utils/ongoing-request.util';
 import { collectSelectedFileContext } from '@/infra/core/context/selected-file-context';
 import { findMarkdownDocuments } from './knowledge-context';
 import {
@@ -85,6 +94,7 @@ export function registerSearchKnowledgeCommand(
       }
 
       const tokenSource = new vscode.CancellationTokenSource();
+      setOngoingRequest(tokenSource);
       try {
         const response = await model.sendRequest(
           [vscode.LanguageModelChatMessage.User(prompt)],
@@ -96,6 +106,10 @@ export function registerSearchKnowledgeCommand(
           answer += fragment;
         }
 
+        if (tokenSource.token.isCancellationRequested) {
+          return;
+        }
+
         ImpactViewProvider.current?.showAnalysis(
           answer || 'O modelo não retornou uma análise.',
           estimateTokenCount(prompt) + estimateTokenCount(answer),
@@ -103,13 +117,32 @@ export function registerSearchKnowledgeCommand(
           [selectedFile],
           {
             kind: 'knowledge-search',
-            title: `Pesquisa na Base de Conhecimento: ${selectedFile}`
+            title: `Pesquisa: ${selectedFile}`,
+            summary: selectedFile
           }
         );
         void vscode.window.showInformationMessage(
           'Consulta à Base de Conhecimento concluída.'
         );
+      } catch (error) {
+        // se o usuário cancelou, qualquer erro subsequente (ex.: fetch abortado
+        // pelo provider) é tratado como cancelamento, não como falha
+        if (
+          tokenSource.token.isCancellationRequested ||
+          error instanceof vscode.CancellationError
+        ) {
+          return;
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        ImpactViewProvider.current?.showAnalysis(
+          `## Falha na pesquisa\n\n${message}`,
+          estimateTokenCount(prompt)
+        );
+        void vscode.window.showErrorMessage(
+          `Falha na pesquisa na Base de Conhecimento: ${message}`
+        );
       } finally {
+        clearOngoingRequest(tokenSource);
         tokenSource.dispose();
       }
     }
@@ -168,6 +201,7 @@ export function registerSearchKnowledgeCommand(
       }
 
       const tokenSource = new vscode.CancellationTokenSource();
+      setOngoingRequest(tokenSource);
       try {
         const response = await model.sendRequest(
           [vscode.LanguageModelChatMessage.User(prompt)],
@@ -179,6 +213,10 @@ export function registerSearchKnowledgeCommand(
           answer += fragment;
         }
 
+        if (tokenSource.token.isCancellationRequested) {
+          return;
+        }
+
         ImpactViewProvider.current?.showAnalysis(
           answer || 'O modelo não retornou uma análise.',
           estimateTokenCount(prompt) + estimateTokenCount(answer),
@@ -186,10 +224,31 @@ export function registerSearchKnowledgeCommand(
           selectedPaths,
           {
             kind: 'knowledge-search',
-            title: `Pesquisa com arquivos em foco: ${question || 'sem pergunta'}`
+            title: `Pesquisa: ${question || 'sem pergunta'}`,
+            summary:
+              question ||
+              'Explique o comportamento funcional dos arquivos em foco.'
           }
         );
+      } catch (error) {
+        // se o usuário cancelou, qualquer erro subsequente (ex.: fetch abortado
+        // pelo provider) é tratado como cancelamento, não como falha
+        if (
+          tokenSource.token.isCancellationRequested ||
+          error instanceof vscode.CancellationError
+        ) {
+          return;
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        ImpactViewProvider.current?.showAnalysis(
+          `## Falha na pesquisa\n\n${message}`,
+          estimateTokenCount(prompt)
+        );
+        void vscode.window.showErrorMessage(
+          `Falha na pesquisa na Base de Conhecimento: ${message}`
+        );
       } finally {
+        clearOngoingRequest(tokenSource);
         tokenSource.dispose();
       }
     }
@@ -205,9 +264,9 @@ function describeModel(model: vscode.LanguageModelChat): string {
 async function selectConfiguredModel(
   ctx: vscode.ExtensionContext
 ): Promise<vscode.LanguageModelChat[]> {
-  const modelId = ctx.workspaceState.get<string>('knowledge.selectedModelId');
+  const modelId = ctx.workspaceState.get<string>(SELECTED_MODEL_KEY);
   const provider =
-    ctx.workspaceState.get<string>('knowledge.selectedProviderId') || 'copilot';
+    ctx.workspaceState.get<string>(SELECTED_PROVIDER_KEY) || 'copilot';
   const models = await vscode.lm.selectChatModels({
     vendor: provider,
     ...(modelId ? { id: modelId } : {})

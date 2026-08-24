@@ -32,14 +32,14 @@ export function buildImpactAnalysisWebviewHtml(
     :root { color-scheme: light dark; }
     * { box-sizing: border-box; }
     body { margin: 0; padding: 12px; color: var(--vscode-foreground); background: var(--vscode-sideBar-background); font-family: var(--vscode-font-family); font-size: 13px; }
-    .topbar { display: grid; grid-template-columns: 36px minmax(0, 1fr) 28px; align-items: center; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--vscode-panel-border); }
+    .topbar { display: grid; grid-template-columns: 36px minmax(0, 1fr) 28px 28px; align-items: center; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--vscode-panel-border); }
     .back { width: 36px; min-height: 36px; padding: 3px; background: transparent; color: var(--vscode-textLink-foreground); border: 1px solid var(--vscode-panel-border); font-size: 18px; }
     .back:hover { background: var(--vscode-list-hoverBackground); }
     .title-group { min-width: 0; }
     .title { overflow: hidden; font-size: 14px; font-weight: 600; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
     .model { overflow: hidden; margin-top: 2px; color: var(--vscode-descriptionForeground); font-size: 11px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
-    .copy-button, .save-button { width: 28px; min-height: 28px; padding: 0; background: transparent; color: var(--vscode-descriptionForeground); border: 1px solid var(--vscode-panel-border); }
-    .copy-button:hover, .save-button:hover { color: var(--vscode-foreground); background: var(--vscode-toolbar-hoverBackground); }
+    .copy-button, .save-button, .reload-button { width: 28px; min-height: 28px; padding: 0; background: transparent; color: var(--vscode-descriptionForeground); border: 1px solid var(--vscode-panel-border); }
+    .copy-button:hover, .save-button:hover, .reload-button:hover { color: var(--vscode-foreground); background: var(--vscode-toolbar-hoverBackground); }
     .content { max-width: 860px; padding: 22px 4px 36px; line-height: 1.55; }
     .content h1, .content h2, .content h3 { margin: 22px 0 8px; line-height: 1.25; font-weight: 600; }
     .content h1 { margin-top: 0; font-size: 20px; }
@@ -61,6 +61,7 @@ export function buildImpactAnalysisWebviewHtml(
       <div id="page-title" class="title">Análise de impacto</div>
       <div id="model" class="model"></div>
     </div>
+    <button id="reload" class="reload-button" aria-label="Refazer análise" title="Refazer análise">↻</button>
     <button id="copy" class="copy-button" aria-label="Copiar resultado" title="Copiar resultado">⧉</button>
   </header>
   <main id="content" class="content" aria-live="polite"></main>
@@ -91,7 +92,14 @@ export function buildImpactAnalysisWebviewHtml(
     if (isError) {
       document.getElementById('copy').style.display = 'none';
     } else {
-      document.getElementById('copy').addEventListener('click', () => vscode.postMessage({ command: 'copyResult', content: markdown }));
+     
+
+    // reload só faz sentido para análise de impacto (reexecuta com o último contexto)
+    if (kind === 'knowledge-search') {
+      document.getElementById('reload').style.display = 'none';
+    } else {
+      document.getElementById('reload').addEventListener('click', () => vscode.postMessage({ command: 'reanalyze' }));
+    } document.getElementById('copy').addEventListener('click', () => vscode.postMessage({ command: 'copyResult', content: markdown }));
     }
 
     function escapeHtml(value) {

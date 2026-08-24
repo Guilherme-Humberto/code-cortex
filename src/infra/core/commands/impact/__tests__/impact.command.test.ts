@@ -1,8 +1,55 @@
 import * as vscode from 'vscode';
 import { jest } from '@jest/globals';
 
-import { registerImpactCommands } from '../impact.command';
+import {
+  registerImpactCommands,
+  shouldAutoSaveImpactAnalysis,
+  shouldSaveImpactAnalysisResult
+} from '../impact.command';
 import { ImpactViewProvider } from '../../../ui/impact-view-provider';
+
+describe('impact.commands - auto-save decision', () => {
+  it('auto-saves only procedent impact analyses', () => {
+    expect(
+      shouldAutoSaveImpactAnalysis(
+        '## Resultado\nCom impacto\n\n## Justificativa'
+      )
+    ).toBe(true);
+
+    expect(
+      shouldAutoSaveImpactAnalysis(
+        '## Resultado\nSem impacto\n\n## Justificativa'
+      )
+    ).toBe(false);
+
+    expect(
+      shouldAutoSaveImpactAnalysis(
+        '## Resultado\nInformação insuficiente\n\n## Justificativa'
+      )
+    ).toBe(false);
+  });
+});
+
+describe('impact.commands - reanalysis save decision', () => {
+  const procedent = '## Resultado\nCom impacto\n\n## Justificativa';
+
+  it('never auto-saves reanalysis results', () => {
+    expect(shouldSaveImpactAnalysisResult(procedent, true)).toBe(false);
+  });
+
+  it('auto-saves original analyses when procedent', () => {
+    expect(shouldSaveImpactAnalysisResult(procedent, false)).toBe(true);
+  });
+
+  it('does not auto-save original analyses without impact', () => {
+    expect(
+      shouldSaveImpactAnalysisResult(
+        '## Resultado\nSem impacto\n\n## Justificativa',
+        false
+      )
+    ).toBe(false);
+  });
+});
 
 describe('impact.commands - history by file', () => {
   let registeredCommands: Record<string, Function> = {};

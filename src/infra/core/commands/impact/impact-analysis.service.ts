@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 
+import { SELECTED_PROVIDER_KEY } from '../../constants';
 import { estimateTokenCount } from '../../utils/token-budget.util';
 import { buildImpactPrompt, ImpactPromptInput } from './impact-prompt';
 
@@ -14,29 +15,11 @@ export interface ImpactAnalysisResult {
 }
 
 export async function runImpactAnalysis(
-  a: vscode.ExtensionContext | ImpactAnalysisInput,
-  b: ImpactAnalysisInput | vscode.CancellationToken,
-  c?: vscode.CancellationToken | string,
-  d?: string
+  context: vscode.ExtensionContext | undefined,
+  input: ImpactAnalysisInput,
+  token: vscode.CancellationToken,
+  modelId?: string
 ): Promise<ImpactAnalysisResult> {
-  // normalize arguments for backward compatibility
-  let context: vscode.ExtensionContext | undefined;
-  let input: ImpactAnalysisInput;
-  let token: vscode.CancellationToken;
-  let modelId: string | undefined;
-
-  if (isExtensionContext(a)) {
-    context = a as vscode.ExtensionContext;
-    input = b as ImpactAnalysisInput;
-    token = c as vscode.CancellationToken;
-    modelId = d;
-  } else {
-    context = undefined;
-    input = a as ImpactAnalysisInput;
-    token = b as vscode.CancellationToken;
-    modelId = c as string | undefined;
-  }
-
   const model = await selectModel(context, modelId);
   const prompt = buildImpactPrompt(input);
   const response = await model.sendRequest(
@@ -67,19 +50,12 @@ export function estimateImpactPromptTokens(input: ImpactAnalysisInput): number {
   return estimateTokenCount(buildImpactPrompt(input));
 }
 
-function isExtensionContext(value: any): value is vscode.ExtensionContext {
-  return value && typeof value === 'object' && 'workspaceState' in value;
-}
-
 async function selectModel(
   context?: vscode.ExtensionContext,
   modelId?: string
 ): Promise<vscode.LanguageModelChat> {
   const provider =
-    (context &&
-      context.workspaceState &&
-      context.workspaceState.get<string>('knowledge.selectedProviderId')) ||
-    'copilot';
+    context?.workspaceState?.get<string>(SELECTED_PROVIDER_KEY) || 'copilot';
 
   let [model] = await vscode.lm.selectChatModels({
     vendor: provider,
@@ -88,6 +64,11 @@ async function selectModel(
 
   if (!model && modelId) {
     [model] = await vscode.lm.selectChatModels({ vendor: provider });
+    if (model) {
+      vscode.window.showWarningMessage(
+        'O modelo salvo não está mais disponível para o provider selecionado. Usando outro modelo disponível — revise a seleção nas configurações.'
+      );
+    }
   }
 
   if (!model) {

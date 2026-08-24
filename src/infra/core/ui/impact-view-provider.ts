@@ -26,13 +26,14 @@ import { buildImpactLoadingWebviewHtml } from './webviews/impact-loading.webview
 import { buildImpactMainWebviewHtml } from './webviews/impact-main.webview';
 import { buildHistoryWebviewHtml } from './webviews/history.webview';
 import { buildImpactSettingsWebviewHtml } from './webviews/impact-settings.webview';
-import { IMPACT_STATE_KEY } from '../constants';
+import { IMPACT_STATE_KEY, LAST_CHANGE_CONTEXT_KEY } from '../constants';
 
 type ScreenMode = 'main' | 'history' | 'analysis' | 'loading' | 'settings';
 
 interface HistorySaveRequest {
   readonly kind: 'impact-analysis' | 'knowledge-search' | 'manual';
   readonly title: string;
+  readonly summary?: string;
 }
 
 // Tipo das mensagens recebidas da webview — evita uso de `any` no handler
@@ -43,6 +44,7 @@ interface WebviewMessage {
   token?: string;
   files?: string[];
   question?: string;
+  changeContext?: string;
   modelId?: string;
   modelName?: string;
   totalTokens?: number;
@@ -170,10 +172,15 @@ export class ImpactViewProvider implements vscode.WebviewViewProvider {
         await this.reloadSelection();
         return;
       case 'analyze':
-        await vscode.commands.executeCommand('codeCortex.startImpactAnalysis');
+        await vscode.commands.executeCommand('codeCortex.startImpactAnalysis', {
+          changeContext: message.changeContext
+        });
         return;
       case 'back':
         await this.renderMain();
+        return;
+      case 'cancelAnalysis':
+        await vscode.commands.executeCommand('codeCortex.cancelImpactAnalysis');
         return;
       case 'history':
         await this.renderHistory();
@@ -188,6 +195,22 @@ export class ImpactViewProvider implements vscode.WebviewViewProvider {
         await vscode.env.clipboard.writeText(message.content || '');
         vscode.window.showInformationMessage('Resultado copiado.');
         return;
+      case 'reanalyze': {
+        const changeContext = this.context.workspaceState.get<string>(
+          LAST_CHANGE_CONTEXT_KEY
+        );
+        if (!changeContext) {
+          vscode.window.showWarningMessage(
+            'Nenhuma análise anterior encontrada para refazer.'
+          );
+          return;
+        }
+        await vscode.commands.executeCommand('codeCortex.startImpactAnalysis', {
+          changeContext,
+          isReanalysis: true
+        });
+        return;
+      }
       case 'saveResult':
         await this.handleSaveResult(message);
         vscode.window.showInformationMessage('Consulta salva no histórico.');
@@ -452,7 +475,8 @@ export class ImpactViewProvider implements vscode.WebviewViewProvider {
         0,
       files: Array.isArray(message.files)
         ? message.files
-        : this.lastHistorySave?.metadata.files || []
+        : this.lastHistorySave?.metadata.files || [],
+      summary: this.lastHistorySave?.metadata.summary
     });
   }
 
@@ -498,12 +522,16 @@ export class ImpactViewProvider implements vscode.WebviewViewProvider {
       readonly modelName: string;
       readonly totalTokens: number;
       readonly files: readonly string[];
+      readonly summary?: string;
     }
   ): Promise<void> {
     try {
       await saveHistoryEntry(this.context, markdown, metadata);
     } catch (error) {
       console.error('Failed to save history entry', error);
+      vscode.window.showWarningMessage(
+        'A análise foi concluída, mas não foi possível salvá-la no histórico.'
+      );
     }
   }
 }

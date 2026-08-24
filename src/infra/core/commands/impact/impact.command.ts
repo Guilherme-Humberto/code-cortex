@@ -11,18 +11,42 @@ import {
 import { runImpactAnalysis } from './impact-analysis.service';
 import { listHistoryEntries } from '../../history/history.service';
 import { findMarkdownDocuments } from '@/capabilities/knowledge/commands/knowledge-context';
-import { IMPACT_STATE_KEY, MEMORY_PATH } from '../../constants';
-
-const SELECTED_MODEL_KEY = 'knowledge.selectedModelId';
+import {
+  cancelOngoingRequest,
+  clearOngoingRequest,
+  setOngoingRequest
+} from '../../utils/ongoing-request.util';
+import {
+  IMPACT_STATE_KEY,
+  LAST_CHANGE_CONTEXT_KEY,
+  MEMORY_PATH,
+  SELECTED_MODEL_KEY
+} from '../../constants';
 
 export function registerImpactCommands(ctx: vscode.ExtensionContext): void {
   registerAddCommand(ctx);
   registerRemoveCommand(ctx);
   registerSelectFilesCommand(ctx);
   registerAnalysisCommand(ctx);
+  registerCancelAnalysisCommand(ctx);
   registerShowHistoryForFileCommand(ctx);
   registerOpenFullHistoryCommand(ctx);
   registerActiveEditorListener(ctx);
+}
+
+function registerCancelAnalysisCommand(ctx: vscode.ExtensionContext): void {
+  ctx.subscriptions.push(
+    vscode.commands.registerCommand(
+      'codeCortex.cancelImpactAnalysis',
+      async () => {
+        if (!cancelOngoingRequest()) {
+          return;
+        }
+        // sai da tela de loading imediatamente, sem depender do provider respeitar o token
+        await ImpactViewProvider.current?.refresh();
+      }
+    )
+  );
 }
 
 function registerOpenFullHistoryCommand(ctx: vscode.ExtensionContext): void {
@@ -225,21 +249,74 @@ function registerSelectFilesCommand(ctx: vscode.ExtensionContext): void {
   );
 }
 
+interface ImpactAnalysisCommandOptions {
+  readonly changeContext?: string;
+  readonly isReanalysis?: boolean;
+}
+
+export function shouldAutoSaveImpactAnalysis(markdown: string): boolean {
+  const normalizedLines = markdown
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .split(/\r?\n/)
+    .map(line =>
+      line
+        .replace(/^#+\s*/, '')
+        .replace(/^[-*]\s*/, '')
+        .replace(/[*_`]/g, '')
+        .trim()
+        .toLowerCase()
+    )
+    .filter(Boolean);
+
+  const resultadoIndex = normalizedLines.findIndex(line =>
+    line.startsWith('resultado')
+  );
+  const candidates =
+    resultadoIndex >= 0
+      ? normalizedLines.slice(resultadoIndex + 1, resultadoIndex + 4)
+      : normalizedLines;
+
+  return candidates.some(
+    line => line === 'com impacto' || line.startsWith('saida b')
+  );
+}
+
+// Reanálises nunca são salvas automaticamente — apenas a análise original.
+export function shouldSaveImpactAnalysisResult(
+  markdown: string,
+  isReanalysis: boolean
+): boolean {
+  return !isReanalysis && shouldAutoSaveImpactAnalysis(markdown);
+}
+
 function registerAnalysisCommand(ctx: vscode.ExtensionContext): void {
   ctx.subscriptions.push(
-    vscode.commands.registerCommand('codeCortex.startImpactAnalysis', () =>
-      executeImpactAnalysis(ctx)
+    vscode.commands.registerCommand('codeCortex.startImpactAnalysis', options =>
+      executeImpactAnalysis(
+        ctx,
+        options as ImpactAnalysisCommandOptions | undefined
+      )
     )
   );
 }
 
 async function executeImpactAnalysis(
-  ctx: vscode.ExtensionContext
+  ctx: vscode.ExtensionContext,
+  options: ImpactAnalysisCommandOptions = {}
 ): Promise<void> {
   const paths = getSelectedPaths(ctx);
   if (paths.length === 0) {
     vscode.window.showWarningMessage(
       'Nenhum arquivo selecionado para análise. Adicione arquivos pelo Explorer.'
+    );
+    return;
+  }
+
+  const changeContext = (options.changeContext || '').trim();
+  if (!changeContext) {
+    vscode.window.showWarningMessage(
+      'Informe o contexto da alteração antes de executar a análise de impacto.'
     );
     return;
   }
@@ -250,19 +327,31 @@ async function executeImpactAnalysis(
     return;
   }
 
+  await ctx.workspaceState.update(LAST_CHANGE_CONTEXT_KEY, changeContext);
+
+  const tokenSource = new vscode.CancellationTokenSource();
+
   try {
     ImpactViewProvider.current?.showLoading(
       'Lendo os arquivos e preparando a análise de impacto...'
     );
     const modelId = ctx.workspaceState.get<string>(SELECTED_MODEL_KEY);
+    setOngoingRequest(tokenSource);
 
     await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
         title: 'Análise de Impacto',
-        cancellable: false
+        cancellable: true
       },
-      async progress => {
+      async (progress, progressToken) => {
+        progressToken.onCancellationRequested(() => tokenSource.cancel());
+        // garante que o fluxo termine ao cancelar mesmo se o provider ignorar o token
+        const cancellation = new Promise<never>((_, reject) => {
+          tokenSource.token.onCancellationRequested(() =>
+            reject(new vscode.CancellationError())
+          );
+        });
         progress.report({ message: 'Lendo contexto essencial...' });
         const files = await collectSelectedFileContext(workspace, paths);
         if (files.length === 0) {
@@ -285,30 +374,56 @@ async function executeImpactAnalysis(
         }
 
         progress.report({ message: 'Consultando o modelo...' });
-        const tokenSource = new vscode.CancellationTokenSource();
         try {
-          const result = await runImpactAnalysis(
-            ctx,
-            { files, knowledgeDocs },
-            tokenSource.token,
-            modelId
+          const result = await Promise.race([
+            runImpactAnalysis(
+              ctx,
+              { files, knowledgeDocs, changeContext },
+              tokenSource.token,
+              modelId
+            ),
+            cancellation
+          ]);
+          if (tokenSource.token.isCancellationRequested) {
+            return;
+          }
+          const markdown =
+            result.markdown || 'O modelo não retornou uma análise.';
+          const shouldSave = shouldSaveImpactAnalysisResult(
+            markdown,
+            options.isReanalysis === true
           );
           ImpactViewProvider.current?.showAnalysis(
-            result.markdown || 'O modelo não retornou uma análise.',
+            markdown,
             result.totalTokens,
             result.modelName,
             paths,
-            {
-              kind: 'impact-analysis',
-              title: `Análise de impacto (${paths.length} arquivo(s))`
-            }
+            shouldSave
+              ? {
+                  kind: 'impact-analysis',
+                  title: `Análise de impacto (${paths.length} arquivo(s))`,
+                  summary: changeContext
+                }
+              : undefined
           );
         } finally {
+          clearOngoingRequest(tokenSource);
           tokenSource.dispose();
         }
       }
     );
   } catch (error) {
+    // se o usuário cancelou, qualquer erro subsequente (ex.: fetch abortado
+    // pelo provider, como o "before fetch request" do NVIDIA NIM) é tratado
+    // como cancelamento, não como falha
+    if (
+      tokenSource.token.isCancellationRequested ||
+      error instanceof vscode.CancellationError
+    ) {
+      vscode.window.showInformationMessage('Análise de impacto cancelada.');
+      await ImpactViewProvider.current?.refresh();
+      return;
+    }
     const message = error instanceof Error ? error.message : String(error);
     vscode.window.showErrorMessage(`Falha na análise de impacto: ${message}`);
     ImpactViewProvider.current?.showAnalysis(

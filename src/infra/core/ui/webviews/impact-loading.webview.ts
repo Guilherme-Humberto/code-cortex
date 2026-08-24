@@ -23,6 +23,8 @@ export function buildImpactLoadingWebviewHtml(
     .loading { max-width: 280px; }
     .spinner { width: 28px; height: 28px; margin: 0 auto 16px; border: 3px solid var(--vscode-panel-border); border-top-color: var(--vscode-textLink-foreground); border-radius: 50%; animation: spin 0.9s linear infinite; }
     p { margin: 0; color: var(--vscode-descriptionForeground); line-height: 1.5; }
+    button { margin-top: 16px; min-height: 30px; padding: 6px 12px; border: 1px solid var(--vscode-panel-border); border-radius: 4px; background: transparent; color: var(--vscode-foreground); cursor: pointer; font: inherit; }
+    button:hover { background: var(--vscode-list-hoverBackground); }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
@@ -30,9 +32,15 @@ export function buildImpactLoadingWebviewHtml(
   <main class="loading" aria-live="polite">
     <div class="spinner" aria-hidden="true"></div>
     <p id="message"></p>
+    <button id="cancel" type="button">Cancelar</button>
   </main>
   <script nonce="${nonce}">
+    const vscode = acquireVsCodeApi();
     document.getElementById('message').textContent = ${messageJson};
+    document.getElementById('cancel').addEventListener('click', () => {
+      document.getElementById('cancel').disabled = true;
+      vscode.postMessage({ command: 'cancelAnalysis' });
+    });
   </script>
 </body>
 </html>`;

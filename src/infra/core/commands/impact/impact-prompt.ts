@@ -10,6 +10,7 @@ import { KnowledgeDocument } from '@/capabilities/knowledge/commands/knowledge-c
 export interface ImpactPromptInput {
   readonly files: readonly SelectedFileContext[];
   readonly knowledgeDocs: readonly KnowledgeDocument[];
+  readonly changeContext?: string;
 }
 
 export function buildImpactPrompt(input: ImpactPromptInput): string {
@@ -42,7 +43,7 @@ RESTRIÇÕES OBRIGATÓRIAS E INVIOLÁVEIS:
 - Não consulte nem infira sobre arquivos fora dos fornecidos.
 
 TAREFA:
-Verifique se os arquivos em foco violam ou impactam alguma regra documentada na Base de Conhecimento Funcional.
+Verifique se a alteração pretendida pelo usuário, considerando os arquivos em foco, viola ou impacta alguma regra documentada na Base de Conhecimento Funcional.
 
 Responda com EXATAMENTE UMA das três saídas:
 - SAÍDA A — Sem impacto: nenhuma regra documentada é afetada.
@@ -51,6 +52,9 @@ Responda com EXATAMENTE UMA das três saídas:
 
 ## Arquivos em foco
 ${files || '[Nenhum conteúdo legível foi encontrado.]'}
+
+## Alteração pretendida pelo usuário
+${input.changeContext || '[Nenhuma alteração pretendida foi informada.]'}
 
 ## Base de Conhecimento Funcional
 ${knowledgeContext || '[Nenhuma documentação encontrada em code-cortex/knowledge.]'}

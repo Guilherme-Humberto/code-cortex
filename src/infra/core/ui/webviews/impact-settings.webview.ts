@@ -81,11 +81,12 @@ export function buildImpactSettingsWebviewHtml(
     <div class="thin-sep"></div>
     <label for="provider">Provedores</label>
     <select id="provider">
-      <option value="copilot">copilot</option>
-      <option value="openai">openai</option>
-      <option value="azure">azure</option>
-      <option value="anthropic">anthropic</option>
-      <option value="google">google</option>
+      <option value="copilot">GitHub Copilot</option>
+      <option value="openai">OpenAI</option>
+      <option value="azure">Azure</option>
+      <option value="anthropic">Anthropic</option>
+      <option value="google">Google</option>
+      <option value="nvidia-nim">NVIDIA</option>
     </select>
     <div style="margin-top:6px;color:var(--vscode-descriptionForeground);font-size:12px;">O provider deve estar registrado no host do VS Code para listar modelos (ex.: Copilot, OpenAI provider).</div>
     <label for="model">Modelos</label>
@@ -170,35 +171,18 @@ export function buildImpactSettingsWebviewHtml(
     } catch (e) {}
 
     document.getElementById('provider').addEventListener('change', () => {
+      // ao trocar de provider, o modelo salvo pertence ao provider anterior — limpa para não enviar um id inválido
+      try {
+        const modelSelect = document.getElementById('model');
+        if (modelSelect) {
+          modelSelect.innerHTML = '';
+        }
+        vscode.postMessage({ command: 'saveModel', modelId: '' });
+        initial.selectedModel = '';
+      } catch (e) {}
       autoSave();
       // request models for the newly selected provider without reloading the webview
       vscode.postMessage({ command: 'requestModels', provider: document.getElementById('provider').value });
-    });
-
-    // listen for model list updates from extension
-    window.addEventListener('message', event => {
-      const msg = event.data || {};
-      if (msg.command === 'models') {
-        const models = Array.isArray(msg.models) ? msg.models : [];
-        const modelSelect = document.getElementById('model');
-        if (!modelSelect) return;
-        // clear
-        modelSelect.innerHTML = '';
-        if (models.length === 0) {
-          const opt = document.createElement('option');
-          opt.value = '';
-          opt.disabled = true;
-          opt.textContent = 'Nenhum modelo disponível para o provider selecionado';
-          modelSelect.appendChild(opt);
-          return;
-        }
-        for (const m of models) {
-          const opt = document.createElement('option');
-          opt.value = m.id || m.name || '';
-          opt.textContent = m.name || m.id || String(m);
-          modelSelect.appendChild(opt);
-        }
-      }
     });
 
     function saveGithubToken() {

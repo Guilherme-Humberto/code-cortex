@@ -1,12 +1,12 @@
 import * as vscode from 'vscode';
 
+import { SELECTED_MODEL_KEY, SELECTED_PROVIDER_KEY } from '../constants';
+
 const SYNC_MODE_KEY = 'code-cortex.syncMode';
 const REPO_URL_KEY = 'code-cortex.repoUrl';
 const LOCAL_PATH_KEY = 'code-cortex.localPath';
 const PRODUCT_KEY = 'code-cortex.product';
 const PROJECT_KEY = 'code-cortex.project';
-const SELECTED_MODEL_KEY = 'knowledge.selectedModelId';
-const SELECTED_PROVIDER_KEY = 'knowledge.selectedProviderId';
 const GITHUB_TOKEN_KEY = 'code-cortex.githubToken';
 
 export type SyncMode = 'github' | 'sharepoint' | 'local';

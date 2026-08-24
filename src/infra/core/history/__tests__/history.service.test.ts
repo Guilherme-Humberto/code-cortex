@@ -41,7 +41,7 @@ describe('history.service', () => {
         totalTokens: 123,
         files: ['src/example.ts']
       })
-    ).resolves.toMatch(/^code-cortex\/\_history\/\d{8}_[a-f0-9]{6}\.md$/);
+    ).resolves.toBe('code-cortex/_history/20260814_impact_analysis_01.md');
 
     expect(createDirectory).toHaveBeenCalled();
     expect(writeFile).toHaveBeenCalledWith(
@@ -50,13 +50,13 @@ describe('history.service', () => {
     );
     const [, bytes] = writeFile.mock.calls[0] as [vscode.Uri, Uint8Array];
     const content = Buffer.from(bytes).toString('utf8');
-    expect(content).toMatch(/id: [a-f0-9]{6}/);
+    expect(content).toContain('id: 20260814_impact_analysis_01');
     expect(content).toContain('kind: impact-analysis');
     expect(content).toContain('title: Análise de impacto');
     expect(content).toContain('files:\n  - src/example.ts');
   });
 
-  it('uses a six-character id in the history file name', async () => {
+  it('uses a date, kind and two-digit sequence in the history file name', async () => {
     const writeFile = jest.spyOn(vscode.workspace.fs, 'writeFile');
 
     const historyPath = await saveHistoryEntry(context, '# Resultado', {
@@ -67,7 +67,9 @@ describe('history.service', () => {
       files: ['src/first.ts', 'src/last.ts']
     });
 
-    expect(historyPath).toMatch(/\d{8}_[a-f0-9]{6}\.md$/);
+    expect(historyPath).toBe(
+      'code-cortex/_history/20260814_knowledge_search_01.md'
+    );
     expect(writeFile).toHaveBeenCalled();
   });
 

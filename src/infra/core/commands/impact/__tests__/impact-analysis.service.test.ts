@@ -36,6 +36,7 @@ describe('impact-analysis.service', () => {
     jest.spyOn(vscode.lm, 'selectChatModels').mockResolvedValue([model] as any);
 
     const result = await runImpactAnalysis(
+      undefined,
       input,
       new vscode.CancellationToken()
     );
@@ -62,6 +63,7 @@ describe('impact-analysis.service', () => {
       .mockResolvedValueOnce([fallbackModel] as any);
 
     const result = await runImpactAnalysis(
+      undefined,
       input,
       new vscode.CancellationToken(),
       'missing'
@@ -75,7 +77,7 @@ describe('impact-analysis.service', () => {
     jest.spyOn(vscode.lm, 'selectChatModels').mockResolvedValue([]);
 
     await expect(
-      runImpactAnalysis(input, new vscode.CancellationToken())
+      runImpactAnalysis(undefined, input, new vscode.CancellationToken())
     ).rejects.toThrow('Nenhum modelo');
   });
 

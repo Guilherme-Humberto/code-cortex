@@ -36,15 +36,15 @@ export function buildHistoryWebviewHtml(
     h1 { margin: 0; font-size: 18px; }
     .subtitle { margin: 6px 0 0; color: var(--vscode-descriptionForeground); line-height: 1.45; }
     .list { display: grid; gap: 10px; margin-top: 16px; }
-    .date-sep { margin: 18px 0 6px; text-align: center; color: var(--vscode-descriptionForeground); font-size: 13px; font-weight: 600; }
-    .date-sep::before { content: ''; display: block; height: 1px; background: var(--vscode-panel-border); margin-bottom: 8px; opacity: 0.9; }
+    .date-sep { margin: 18px 0 6px; text-align: left; color: var(--vscode-descriptionForeground); font-size: 13px; font-weight: 400; }
     .card { padding: 12px 48px 12px 12px; border: 1px solid var(--vscode-panel-border); border-radius: 8px; background: color-mix(in srgb, var(--vscode-editor-background) 55%, transparent); cursor: pointer; text-align: left; position: relative; }
     .card:hover { background: var(--vscode-list-hoverBackground); }
     .card-title { font-weight: 600; }
     .card-meta { margin-top: 4px; color: var(--vscode-descriptionForeground); font-size: 12px; line-height: 1.45; }
-    .files { margin-top: 8px; color: var(--vscode-descriptionForeground); font-size: 12px; opacity: 0.9; }
-    .files > div { margin-bottom: 4px; }
+    .summary { margin-top: 8px; color: var(--vscode-descriptionForeground); font-size: 12px; line-height: 1.4; opacity: 0.9; display: -webkit-box; overflow: hidden; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
     .empty { padding: 18px 0; color: var(--vscode-descriptionForeground); }
+    .search { width: 100%; margin-top: 12px; padding: 7px 8px; border: 1px solid color-mix(in srgb, var(--vscode-foreground) 32%, var(--vscode-sideBar-background)); border-radius: 4px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); font: inherit; }
+    .search:focus { outline: 1px solid var(--vscode-focusBorder); }
     .highlight { background: color-mix(in srgb, rgba(255,255,0,0.25) 60%, transparent); padding: 2px 4px; border-radius: 3px; }
     .remove-btn { position: absolute; top: 12px; right: 12px; border: 1px solid var(--vscode-panel-border); background: transparent; color: var(--vscode-errorForeground); cursor: pointer; padding: 6px; border-radius: 6px; }
     .remove-btn:hover { background: var(--vscode-list-hoverBackground); }
@@ -62,6 +62,7 @@ export function buildHistoryWebviewHtml(
     <h1>Consultas salvas</h1>
     <p class="subtitle">Esta lista reúne pesquisas na base de conhecimento.</p>
     ${filterLabel ? `<p class="subtitle">${filterLabel}</p>` : ''}
+    <input id="search" class="search" type="text" placeholder="Pesquisar pelo contexto da consulta..." aria-label="Pesquisar consultas salvas" />
     <div class="list" id="list"></div>
   </main>
   <script nonce="${nonce}">
@@ -69,6 +70,25 @@ export function buildHistoryWebviewHtml(
     const history = ${historyJson};
     const filterPath = ${filterPathJson};
     const list = document.getElementById('list');
+    const searchInput = document.getElementById('search');
+
+    function normalizeText(value) {
+      return (value || '')
+        .toString()
+        .normalize('NFD')
+        .replace(/[\\u0300-\\u036f]/g, '')
+        .toLowerCase();
+    }
+
+    function getFilteredHistory() {
+      const term = normalizeText(searchInput.value).trim();
+      if (!term) {
+        return history;
+      }
+      return history.filter(entry => normalizeText(entry.summary).includes(term));
+    }
+
+    searchInput.addEventListener('input', render);
 
     function formatDate(value) {
       try {
@@ -89,9 +109,15 @@ export function buildHistoryWebviewHtml(
         return;
       }
 
+      const filtered = getFilteredHistory();
+      if (!filtered.length) {
+        list.innerHTML = '<div class="empty">Nenhuma consulta encontrada para o texto pesquisado.</div>';
+        return;
+      }
+
       let prevDate = null;
-      for (let i = 0; i < history.length; i++) {
-        const entry = history[i];
+      for (let i = 0; i < filtered.length; i++) {
+        const entry = filtered[i];
         const dateKey = (function(v) {
           try {
             return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' }).format(new Date(v));
@@ -114,41 +140,26 @@ export function buildHistoryWebviewHtml(
 
         const title = document.createElement('div');
         title.className = 'card-title';
-        const savedName = (entry.path || '').split('/').pop() || entry.title || 'Consulta sem título';
-        title.textContent = (history.length - i) + ') ' + savedName;
+        const baseName = ((entry.path || '').split('/').pop() || '').replace(/\\.md$/i, '');
+        const indexMatch = baseName.match(/_(\\d+)$/);
+        const displayIndex = indexMatch ? String(parseInt(indexMatch[1], 10)) : String(filtered.length - i);
+        const savedName = baseName || entry.title || 'Consulta sem título';
+        title.textContent = displayIndex + ') ' + savedName;
 
         const meta = document.createElement('div');
         meta.className = 'card-meta';
         meta.textContent = formatDate(entry.createdAt) + ' · ' + (entry.modelName || 'Modelo não identificado') + ' · ' + (entry.totalTokens || 0) + ' tokens · ' + entry.kind;
 
-        const files = document.createElement('div');
-        files.className = 'files';
-        const fileList = (entry.files && entry.files.length) ? entry.files : [entry.path];
-        const maxShowFiles = 3;
-        for (let i = 0; i < Math.min(fileList.length, maxShowFiles); i++) {
-          const f = document.createElement('div');
-          const fileName = fileList[i];
-          if (filterPath && fileName === filterPath) {
-            const span = document.createElement('span');
-            span.className = 'highlight';
-            span.textContent = fileName;
-            f.appendChild(span);
-          } else {
-            f.textContent = fileName;
-          }
-          files.appendChild(f);
-        }
-        if (fileList.length === 0) {
-          files.textContent = 'Sem arquivos associados';
-        } else if (fileList.length > maxShowFiles) {
-          const more = document.createElement('div');
-          more.textContent = '...';
-          files.appendChild(more);
-        }
+        const summary = document.createElement('div');
+        summary.className = 'summary';
+        const fallbackFile = entry.files && entry.files.length ? entry.files[0] : entry.path;
+        const summaryText = entry.summary || entry.title || fallbackFile || 'Sem contexto registrado.';
+        summary.textContent = summaryText;
+        summary.title = summaryText;
 
         card.appendChild(title);
         card.appendChild(meta);
-        card.appendChild(files);
+        card.appendChild(summary);
 
         const removeBtn = document.createElement('button');
         removeBtn.className = 'remove-btn';

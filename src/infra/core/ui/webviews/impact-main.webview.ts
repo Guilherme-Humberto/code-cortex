@@ -33,6 +33,9 @@ export function buildImpactMainWebviewHtml(
     .eyebrow { margin: 0 0 4px; color: var(--vscode-textLink-foreground); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
     h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: 0; }
     .subtitle { margin: 5px 0 0; color: var(--vscode-descriptionForeground); line-height: 1.45; }
+    .focus-summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; padding: 10px 12px; border: 1px solid var(--vscode-panel-border); border-radius: 6px; background: color-mix(in srgb, var(--vscode-editor-background) 35%, transparent); }
+    .focus-count { color: var(--vscode-descriptionForeground); line-height: 1.35; }
+    .focus-count strong { margin-right: 6px; color: var(--vscode-foreground); font-size: 20px; line-height: 1; }
     .accordion { margin: 8px 0; border: 1px solid var(--vscode-panel-border); border-radius: 6px; background: color-mix(in srgb, var(--vscode-editor-background) 45%, transparent); overflow: hidden; }
     .accordion summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 11px 12px; cursor: pointer; list-style: none; font-weight: 600; }
     .accordion summary::-webkit-details-marker { display: none; }
@@ -40,9 +43,13 @@ export function buildImpactMainWebviewHtml(
     .accordion[open] summary::after { content: '−'; }
     .accordion summary:hover { background: var(--vscode-list-hoverBackground); }
     .accordion-content { padding: 0 12px 12px; }
-    .overview { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; }
-    .stat { color: var(--vscode-descriptionForeground); }
-    .stat strong { display: block; color: var(--vscode-foreground); font-size: 24px; line-height: 1; }
+    .impact-context { display: grid; gap: 8px; padding-top: 8px; }
+    .impact-context textarea { width: 100%; min-height: 58px; max-height: 120px; resize: vertical; padding: 7px 8px; border: 1px solid var(--vscode-panel-border); border-radius: 4px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); font: inherit; line-height: 1.35; }
+    .impact-context button { width: 120px; justify-self: end; }
+    .impact-context textarea:focus { border-color: var(--vscode-focusBorder); outline: 1px solid color-mix(in srgb, var(--vscode-focusBorder) 55%, transparent); }
+    .impact-context textarea.invalid { border-color: color-mix(in srgb, var(--vscode-errorForeground) 65%, var(--vscode-panel-border)); outline: 0; }
+    .impact-context-hint { display: none; color: var(--vscode-errorForeground); font-size: 12px; line-height: 1.3; }
+    .impact-context-hint.visible { display: block; }
     .actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
     .question { display: flex; gap: 7px; margin-top: 10px; }
     .question input { min-width: 0; flex: 1; padding: 7px 8px; border: 1px solid color-mix(in srgb, var(--vscode-foreground) 32%, var(--vscode-sideBar-background)); border-radius: 4px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); font: inherit; }
@@ -64,7 +71,7 @@ export function buildImpactMainWebviewHtml(
     .history-row { display: block; width: 100%; min-width: 0; min-height: 0; overflow: hidden; padding: 7px 6px; border: 0; border-top: 1px solid var(--vscode-panel-border); border-radius: 0; background: transparent; color: var(--vscode-textLink-foreground); cursor: pointer; font: inherit; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
     .history-row:first-child { border-top: 0; }
     .history-row:hover { background: var(--vscode-list-hoverBackground); }
-    .history .files > div { margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .history-summary { margin-top: 6px; color: var(--vscode-descriptionForeground); font-size: 12px; line-height: 1.35; display: -webkit-box; overflow: hidden; -webkit-line-clamp: 3; -webkit-box-orient: vertical; white-space: normal; }
   </style>
 </head>
 <body>
@@ -80,13 +87,9 @@ export function buildImpactMainWebviewHtml(
     <p class="subtitle">Organize contexto, arquivos e conhecimento do projeto.</p>
   </header>
 
-  <details class="accordion" open>
-    <summary>Visão geral</summary>
-    <div class="accordion-content overview">
-      <div class="stat"><strong id="file-count">0</strong>arquivos em foco</div>
-      <button id="analyze">Executar análise</button>
-    </div>
-  </details>
+  <div class="focus-summary" aria-live="polite">
+    <div class="focus-count"><strong id="file-count">0</strong>arquivos em foco</div>
+  </div>
 
   <details class="accordion" open>
     <summary>Arquivos selecionados</summary>
@@ -95,10 +98,20 @@ export function buildImpactMainWebviewHtml(
     </div>
   </details>
 
+  <details class="accordion" open>
+    <summary>Análise de impacto</summary>
+    <div class="accordion-content impact-context">
+      <p class="subtitle" style="margin:0;">Avalie os impactos da mudança nos arquivos em foco.</p>
+      <textarea id="change-context" placeholder="Descreva a mudança planejada" aria-label="Contexto da alteração"></textarea>
+      <div id="change-context-hint" class="impact-context-hint">Informe o contexto da alteração para executar a análise.</div>
+      <button id="analyze">Iniciar análise</button>
+    </div>
+  </details>
+
   <details class="accordion">
-    <summary>Conhecimento e ferramentas</summary>
+    <summary>Consulta à documentação</summary>
     <div class="accordion-content">
-      <p class="subtitle"><strong>Arquivos em foco</strong> para análise funcional de um fluxo ou módulo.</p>
+      <p class="subtitle">Faça perguntas sobre os arquivos em foco.</p>
       <div class="actions">
         <button class="secondary quick-question" data-question="Explique o que este código faz funcionalmente.">O que este código faz?</button>
         <button class="secondary quick-question" data-question="Quais regras de negócio este trecho implementa ou depende?">Regras de negócio</button>
@@ -115,7 +128,7 @@ export function buildImpactMainWebviewHtml(
   <details class="accordion" open>
     <summary>Últimas 10 consultas</summary>
     <div class="accordion-content">
-      <div style="margin:6px 0 10px;"><a id="open-full-history" href="#">Ver histórico completo</a></div>
+      ${history && history.length ? `<div style="margin:6px 0 10px;"><a id="open-full-history" href="#">Ver histórico completo</a></div>` : ''}
       <div class="history" id="history"></div>
     </div>
   </details>
@@ -179,51 +192,60 @@ export function buildImpactMainWebviewHtml(
         const row = document.createElement('button');
         row.className = 'history-row';
         const title = document.createElement('div');
-        const savedName = (entry.path || '').split('/').pop() || entry.title || entry.path;
-        title.textContent = (history.length - idx) + ') ' + savedName;
+        const baseName = ((entry.path || '').split('/').pop() || '').replace(/\.md$/i, '');
+        const indexMatch = baseName.match(/_(\d+)$/);
+        const displayIndex = indexMatch ? String(parseInt(indexMatch[1], 10)) : String(history.length - idx);
+        const savedName = baseName || entry.title || entry.path;
+        title.textContent = displayIndex + ') ' + savedName;
         title.style.fontWeight = '600';
         title.title = savedName;
 
-        const filesEl = document.createElement('div');
-        filesEl.className = 'files';
-        filesEl.style.fontSize = '12px';
-        filesEl.style.color = 'var(--vscode-descriptionForeground)';
-        filesEl.style.marginTop = '6px';
-        filesEl.style.display = 'flex';
-        filesEl.style.flexDirection = 'column';
-        const files = (entry.files && entry.files.length) ? entry.files : [entry.path];
-        const maxShow = 3;
-        for (let i = 0; i < Math.min(files.length, maxShow); i++) {
-          const li = document.createElement('div');
-          li.textContent = files[i];
-          li.title = files[i];
-          filesEl.appendChild(li);
-        }
-        if (files.length > maxShow) {
-          const more = document.createElement('div');
-          more.textContent = '...';
-          filesEl.appendChild(more);
-        }
+        const summary = document.createElement('div');
+        summary.className = 'history-summary';
+        const summaryText = entry.summary || entry.title || 'Sem contexto registrado.';
+        summary.textContent = summaryText;
+        summary.title = summaryText;
 
         row.appendChild(title);
-        row.appendChild(filesEl);
+        row.appendChild(summary);
         row.addEventListener('click', () => vscode.postMessage({ command: 'openHistory', path: entry.path }));
         historyContainer.appendChild(row);
       }
     }
 
     document.getElementById('analyze').addEventListener('click', () => {
-      vscode.postMessage({ command: 'analyze', files });
+      const contextInput = document.getElementById('change-context');
+      const contextHint = document.getElementById('change-context-hint');
+      const changeContext = contextInput.value.trim();
+      if (!changeContext) {
+        contextInput.classList.add('invalid');
+        contextHint.classList.add('visible');
+        contextInput.focus();
+        return;
+      }
+      contextInput.classList.remove('invalid');
+      contextHint.classList.remove('visible');
+      vscode.postMessage({ command: 'analyze', files, changeContext });
+    });
+
+    document.getElementById('change-context').addEventListener('input', event => {
+      if (event.target.value.trim()) {
+        event.target.classList.remove('invalid');
+        document.getElementById('change-context-hint').classList.remove('visible');
+      }
     });
 
     document.getElementById('settings').addEventListener('click', () => {
       vscode.postMessage({ command: 'settings' });
     });
 
-    document.getElementById('open-full-history').addEventListener('click', (e) => {
-      e.preventDefault();
-      vscode.postMessage({ command: 'history' });
-    });
+    const openFullEl = document.getElementById('open-full-history');
+    if (openFullEl) {
+      openFullEl.addEventListener('click', (e) => {
+        e.preventDefault();
+        vscode.postMessage({ command: 'history' });
+      });
+    }
 
     document.getElementById('reload').addEventListener('click', () => {
       vscode.postMessage({ command: 'reload' });

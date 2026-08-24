@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { randomBytes } from 'node:crypto';
+import * as path from 'node:path';
 
 const HISTORY_STATE_KEY = 'code-cortex.history.entries';
 const HISTORY_DIRECTORY = 'code-cortex/_history';
@@ -12,6 +12,7 @@ export interface HistoryEntry {
   readonly id: string;
   readonly kind: HistoryEntryKind;
   readonly title: string;
+  readonly summary?: string;
   readonly modelName: string;
   readonly totalTokens: number;
   readonly createdAt: string;
@@ -22,6 +23,7 @@ export interface HistoryEntry {
 export interface HistoryMetadata {
   readonly kind: HistoryEntryKind;
   readonly title: string;
+  readonly summary?: string;
   readonly modelName: string;
   readonly totalTokens: number;
   readonly files: readonly string[];
@@ -45,15 +47,23 @@ export async function saveHistoryEntry(
   const directory = vscode.Uri.joinPath(workspace.uri, HISTORY_DIRECTORY);
   await vscode.workspace.fs.createDirectory(directory);
 
-  const id = createHistoryId();
-  const createdAt = new Date().toISOString();
-  const fileName = createHistoryFileName(new Date(), id);
+  const createdDate = new Date(Date.now());
+  const createdAt = createdDate.toISOString();
+  const fileName = createHistoryFileName(
+    createdDate,
+    metadata.kind,
+    getHistoryState(context)
+  );
+  const id = path.basename(fileName, '.md');
   const fileUri = vscode.Uri.joinPath(directory, fileName);
   const content = [
     '---',
     `id: ${id}`,
     `kind: ${metadata.kind}`,
     `title: ${escapeFrontmatterValue(metadata.title)}`,
+    ...(metadata.summary
+      ? [`summary: ${escapeFrontmatterValue(metadata.summary)}`]
+      : []),
     `model: ${metadata.modelName}`,
     `estimatedTokens: ${metadata.totalTokens}`,
     `createdAt: ${createdAt}`,
@@ -70,6 +80,7 @@ export async function saveHistoryEntry(
     id,
     kind: metadata.kind,
     title: metadata.title,
+    summary: metadata.summary,
     modelName: metadata.modelName,
     totalTokens: metadata.totalTokens,
     createdAt,
@@ -191,16 +202,29 @@ export async function removeHistoryEntry(
   }
 }
 
-function createHistoryFileName(date: Date, id: string): string {
+function createHistoryFileName(
+  date: Date,
+  kind: HistoryEntryKind,
+  existingEntries: readonly HistoryEntry[]
+): string {
   const yyyy = date.getFullYear();
   const mm = String(date.getMonth() + 1).padStart(2, '0');
   const dd = String(date.getDate()).padStart(2, '0');
   const ymd = `${yyyy}${mm}${dd}`;
-  return `${ymd}_${id}.md`;
-}
+  const kindSlug = kind.replace(/-/g, '_');
+  const prefix = `${ymd}_${kindSlug}_`;
+  const nextSequence =
+    existingEntries.reduce((highest, entry) => {
+      const fileName = path.basename(entry.path);
+      const match = fileName.match(
+        new RegExp(
+          `^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\d+)\\.md$`
+        )
+      );
+      return match ? Math.max(highest, Number(match[1])) : highest;
+    }, 0) + 1;
 
-function createHistoryId(): string {
-  return randomBytes(3).toString('hex');
+  return `${prefix}${String(nextSequence).padStart(2, '0')}.md`;
 }
 
 function getHistoryState(context: vscode.ExtensionContext): HistoryEntry[] {
@@ -316,6 +340,7 @@ function parseHistoryFile(
   let id = firstValue(data.id);
   const kind = (firstValue(data.kind) as HistoryEntryKind) || 'manual';
   const title = firstValue(data.title) || fileName;
+  const summary = firstValue(data.summary) || undefined;
   const modelName = firstValue(data.model) || 'Modelo não identificado';
   const totalTokens = Number(firstValue(data.estimatedTokens) || 0);
   let createdAt = firstValue(data.createdAt);
@@ -327,7 +352,7 @@ function parseHistoryFile(
     if (match) {
       id = match[1]!;
     } else {
-      id = createHistoryId();
+      id = path.basename(fileName, '.md');
     }
   }
 
@@ -352,6 +377,7 @@ function parseHistoryFile(
     id,
     kind,
     title,
+    summary,
     modelName,
     totalTokens,
     createdAt,
