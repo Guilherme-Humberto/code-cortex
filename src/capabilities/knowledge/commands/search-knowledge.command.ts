@@ -3,7 +3,9 @@ import * as vscode from 'vscode';
 import { DisposableStore } from '@/infra/core/bootstrap/disposable-store';
 import { registerDisposable } from '@/infra/core/utils/register-disposable.utils';
 import {
+  DOCUMENTATION_DIRECTORY,
   IMPACT_STATE_KEY,
+  KNOWLEDGE_DIRECTORY,
   MEMORY_PATH,
   SELECTED_MODEL_KEY,
   SELECTED_PROVIDER_KEY
@@ -66,16 +68,17 @@ export function registerSearchKnowledgeCommand(
       const knowledgeFolder = vscode.Uri.joinPath(
         workspace.uri,
         MEMORY_PATH,
-        'knowledge'
+        DOCUMENTATION_DIRECTORY,
+        KNOWLEDGE_DIRECTORY
       );
       const documents = await findMarkdownDocuments(knowledgeFolder);
       if (documents.length === 0) {
         ImpactViewProvider.current?.showAnalysis(
-          '## Nenhuma documentação encontrada\n\nNão há arquivos disponíveis em `code-cortex/knowledge` para realizar esta pesquisa.',
+          '## Nenhuma documentação encontrada\n\nNão há arquivos disponíveis em `code-cortex/documentation/knowledge` para realizar esta pesquisa.',
           0
         );
         vscode.window.showInformationMessage(
-          `Nenhuma documentação encontrada em ${MEMORY_PATH}/knowledge.`
+          `Nenhuma documentação encontrada em ${MEMORY_PATH}/${DOCUMENTATION_DIRECTORY}/${KNOWLEDGE_DIRECTORY}.`
         );
         return;
       }
@@ -174,13 +177,18 @@ export function registerSearchKnowledgeCommand(
       );
 
       const documents = await findMarkdownDocuments(
-        vscode.Uri.joinPath(workspace.uri, MEMORY_PATH, 'knowledge')
+        vscode.Uri.joinPath(
+          workspace.uri,
+          MEMORY_PATH,
+          DOCUMENTATION_DIRECTORY,
+          KNOWLEDGE_DIRECTORY
+        )
       );
       const files = await collectSelectedFileContext(workspace, selectedPaths);
 
       if (documents.length === 0 || files.length === 0) {
         ImpactViewProvider.current?.showAnalysis(
-          '## Contexto insuficiente\n\nÉ necessário ter arquivos em foco e documentação em `code-cortex/knowledge` para realizar esta pesquisa.',
+          '## Contexto insuficiente\n\nÉ necessário ter arquivos em foco e documentação em `code-cortex/documentation/knowledge` para realizar esta pesquisa.',
           0
         );
         return;

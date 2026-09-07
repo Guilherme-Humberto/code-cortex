@@ -51,6 +51,20 @@ async function main() {
     await ctx.rebuild();
     await ctx.dispose();
   }
+
+  // CLI autônomo (sem dependência de `vscode`) que a extensão copia para dentro
+  // do workspace do usuário, para uso em pre-commit/CI de qualquer projeto.
+  await esbuild.build({
+    entryPoints: [
+      'src/capabilities/repository-docs/cli/check-repository-docs.entry.ts'
+    ],
+    bundle: true,
+    format: 'cjs',
+    minify: production,
+    platform: 'node',
+    outfile: 'dist/check-repository-docs.js',
+    logLevel: 'silent'
+  });
 }
 
 main().catch(e => {

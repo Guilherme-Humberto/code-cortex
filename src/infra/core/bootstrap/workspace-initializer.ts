@@ -1,5 +1,10 @@
 import * as vscode from 'vscode';
 import { ImpactViewProvider } from '../ui/impact-view-provider';
+import {
+  offerPackageJsonScripts,
+  provisionRepositoryDocsScript,
+  watchRepositoryDocsScript
+} from './pre-commit-assets.service';
 
 export class WorkspaceInitializer {
   /**
@@ -20,6 +25,20 @@ export class WorkspaceInitializer {
         }
       )
     );
+
+    // provisiona o CLI de docs de repositório e oferece os scripts de pre-commit,
+    // sem bloquear a ativação da extensão em caso de falha
+    void provisionRepositoryDocsScript(context, workspace)
+      .then(() => offerPackageJsonScripts(context, workspace))
+      .catch(error =>
+        console.error(
+          'CodeCortex: falha ao provisionar pre-commit assets',
+          error
+        )
+      );
+
+    // recria o CLI automaticamente se o usuário apagar a pasta .scripts durante a sessão
+    context.subscriptions.push(watchRepositoryDocsScript(context, workspace));
   }
 
   /**

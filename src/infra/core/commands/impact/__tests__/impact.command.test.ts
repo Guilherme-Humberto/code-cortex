@@ -98,7 +98,7 @@ describe('impact.commands - history by file', () => {
       {
         id: 'a',
         files: [new (vscode as any).Uri('/workspace/src/foo.ts').fsPath],
-        path: 'code-cortex/_history/a.md',
+        path: 'code-cortex/.history/a.md',
         createdAt: new Date().toISOString(),
         kind: 'manual',
         title: 't',
@@ -140,7 +140,7 @@ describe('impact.commands - history by file', () => {
       {
         id: 'a',
         files: ['src/foo.ts'],
-        path: 'code-cortex/_history/a.md',
+        path: 'code-cortex/.history/a.md',
         createdAt: new Date().toISOString(),
         kind: 'manual',
         title: 't',

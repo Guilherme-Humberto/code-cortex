@@ -33,9 +33,6 @@ export function buildImpactMainWebviewHtml(
     .eyebrow { margin: 0 0 4px; color: var(--vscode-textLink-foreground); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
     h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: 0; }
     .subtitle { margin: 5px 0 0; color: var(--vscode-descriptionForeground); line-height: 1.45; }
-    .focus-summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; padding: 10px 12px; border: 1px solid var(--vscode-panel-border); border-radius: 6px; background: color-mix(in srgb, var(--vscode-editor-background) 35%, transparent); }
-    .focus-count { color: var(--vscode-descriptionForeground); line-height: 1.35; }
-    .focus-count strong { margin-right: 6px; color: var(--vscode-foreground); font-size: 20px; line-height: 1; }
     .accordion { margin: 8px 0; border: 1px solid var(--vscode-panel-border); border-radius: 6px; background: color-mix(in srgb, var(--vscode-editor-background) 45%, transparent); overflow: hidden; }
     .accordion summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 11px 12px; cursor: pointer; list-style: none; font-weight: 600; }
     .accordion summary::-webkit-details-marker { display: none; }
@@ -86,10 +83,6 @@ export function buildImpactMainWebviewHtml(
     </div>
     <p class="subtitle">Organize contexto, arquivos e conhecimento do projeto.</p>
   </header>
-
-  <div class="focus-summary" aria-live="polite">
-    <div class="focus-count"><strong id="file-count">0</strong>arquivos em foco</div>
-  </div>
 
   <details class="accordion" open>
     <summary>Arquivos selecionados</summary>
@@ -148,12 +141,10 @@ export function buildImpactMainWebviewHtml(
     const history = ${historyJson};
 
     const filesContainer = document.getElementById('files');
-    const fileCount = document.getElementById('file-count');
     const historyContainer = document.getElementById('history');
 
     function render() {
       filesContainer.innerHTML = '';
-      fileCount.textContent = files.length;
       if (!files || files.length === 0) {
         filesContainer.innerHTML = '<div class="empty">Nenhum arquivo em foco. Use o Explorer ou comandos do CodeCortex para adicionar arquivos ao workspace.</div>';
         return;

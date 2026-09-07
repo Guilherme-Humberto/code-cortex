@@ -1,6 +1,11 @@
 import * as vscode from 'vscode';
 
 import {
+  DOCUMENTATION_DIRECTORY,
+  KNOWLEDGE_DIRECTORY,
+  MEMORY_PATH
+} from '../../constants';
+import {
   isDocxKnowledgeFile,
   prepareKnowledgeFileForStorage
 } from '../../utils/knowledge-file.util';
@@ -40,8 +45,9 @@ export async function syncFromLocalFolder(localPath?: string): Promise<void> {
     const source = vscode.Uri.file(normalized);
     const targetDir = vscode.Uri.joinPath(
       workspaceFolder,
-      'code-cortex',
-      'knowledge'
+      MEMORY_PATH,
+      DOCUMENTATION_DIRECTORY,
+      KNOWLEDGE_DIRECTORY
     );
     const stats: SyncCopyStats = {
       copiedFiles: 0,
@@ -69,7 +75,7 @@ export async function syncFromLocalFolder(localPath?: string): Promise<void> {
     vscode.window.showInformationMessage(
       summary
         ? `Sincronização local concluída. ${summary}`
-        : 'Sincronização local concluída. Arquivos copiados para code-cortex/knowledge'
+        : 'Sincronização local concluída. Arquivos copiados para code-cortex/documentation/knowledge'
     );
   } catch (error) {
     console.error('Local sync failed', error);

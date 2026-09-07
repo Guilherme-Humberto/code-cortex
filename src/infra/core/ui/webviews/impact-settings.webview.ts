@@ -129,7 +129,7 @@ export function buildImpactSettingsWebviewHtml(
         <input id="localPath" type="text" placeholder="Nenhuma pasta selecionada" readonly style="flex:1;padding:8px;border-radius:4px;border:1px solid color-mix(in srgb, var(--vscode-foreground) 32%, var(--vscode-sideBar-background));background:var(--vscode-input-background);color:var(--vscode-input-foreground);" />
         <button id="pickFolder">Alterar</button>
       </div>
-      <div style="margin-top:8px;color:var(--vscode-descriptionForeground);font-size:12px;">Ao sincronizar, arquivos serão copiados para <strong>code-cortex/knowledge</strong>.</div>
+      <div style="margin-top:8px;color:var(--vscode-descriptionForeground);font-size:12px;">Ao sincronizar, arquivos serão copiados para <strong>code-cortex/documentation/knowledge</strong>.</div>
     </div>
 
     <div style="display:flex;gap:8px;margin-top:12px;">

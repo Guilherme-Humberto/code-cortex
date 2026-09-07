@@ -57,7 +57,7 @@ ${files || '[Nenhum conteúdo legível foi encontrado.]'}
 ${input.changeContext || '[Nenhuma alteração pretendida foi informada.]'}
 
 ## Base de Conhecimento Funcional
-${knowledgeContext || '[Nenhuma documentação encontrada em code-cortex/knowledge.]'}
+${knowledgeContext || '[Nenhuma documentação encontrada em code-cortex/documentation/knowledge.]'}
 
 Responda em português brasileiro, neste formato:
 

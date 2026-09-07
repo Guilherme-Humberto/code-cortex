@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import { DisposableStore } from './infra/core/bootstrap/disposable-store';
 import { WorkspaceInitializer } from './infra/core/bootstrap/workspace-initializer';
 import { registerSearchKnowledgeCommand } from './capabilities/knowledge/commands/search-knowledge.command';
+import { registerGenerateRepositoryDocsCommand } from './capabilities/repository-docs/commands/generate-repository-docs.command';
 import { registerCoreCommands } from './infra/core/commands/command.registry';
 
 const disposables = new DisposableStore();
@@ -24,6 +25,7 @@ export async function activate(
   }
 
   registerSearchKnowledgeCommand(context, disposables);
+  registerGenerateRepositoryDocsCommand(context, disposables);
   registerCoreCommands(context);
 }
 

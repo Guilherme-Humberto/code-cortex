@@ -14,7 +14,7 @@ function makeEntry(overrides: Partial<HistoryEntry> = {}): HistoryEntry {
     totalTokens: 100,
     createdAt: new Date().toISOString(),
     files: ['src/foo.ts'],
-    path: 'code-cortex/_history/20260823_impact_analysis_04.md',
+    path: 'code-cortex/.history/20260823_impact_analysis_04.md',
     ...overrides
   };
 }

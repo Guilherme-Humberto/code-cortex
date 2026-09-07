@@ -69,6 +69,13 @@ export const workspace = {
   getWorkspaceFolder: () => undefined,
   workspaceFolders: [] as any[],
   asRelativePath: (uri: Uri) => uri.fsPath,
+  onDidChangeWorkspaceFolders: () => ({ dispose: () => undefined }),
+  createFileSystemWatcher: () => ({
+    onDidCreate: () => ({ dispose: () => undefined }),
+    onDidChange: () => ({ dispose: () => undefined }),
+    onDidDelete: () => ({ dispose: () => undefined }),
+    dispose: () => undefined
+  }),
   FileType: {
     File: 1,
     Directory: 2
@@ -82,6 +89,13 @@ export const workspace = {
     delete: async () => undefined
   }
 };
+
+export class RelativePattern {
+  constructor(
+    public readonly base: Uri,
+    public readonly pattern: string
+  ) {}
+}
 
 export const FileType = {
   File: 1,

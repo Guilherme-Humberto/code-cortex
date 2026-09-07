@@ -55,6 +55,10 @@
       {
         "command": "codeCortex.removeFromImpact",
         "title": "CodeCortex: Remover arquivos"
+      },
+      {
+        "command": "codeCortex_repositoryDocs_generate",
+        "title": "CodeCortex: Gerar documentação a partir do código"
       }
     ],
     "menus": {

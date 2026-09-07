@@ -21,7 +21,7 @@ RESTRIÇÕES OBRIGATÓRIAS E INVIOLÁVEIS:
 - Não altere, crie, exclua ou sugira aplicar alterações em nenhum arquivo.
 - Não escreva código, patches, diffs ou instruções de edição.
 - Consulte apenas o trecho de código fornecido e os documentos abaixo.
-- A única documentação autorizada está dentro de code-cortex/knowledge.
+- A única documentação autorizada está dentro de code-cortex/documentation/knowledge.
 - Não consulte nem peça para consultar outros arquivos do workspace ou o projeto inteiro.
 - Não use conhecimento externo para inventar regras de negócio.
 - Se os dados não bastarem, informe explicitamente a limitação.
@@ -63,7 +63,7 @@ RESTRIÇÕES OBRIGATÓRIAS E INVIOLÁVEIS:
 - Não altere, crie, exclua ou sugira aplicar alterações em nenhum arquivo.
 - Não escreva código, patches, diffs ou instruções de edição.
 - Consulte somente os arquivos em foco e os documentos fornecidos abaixo.
-- A única documentação autorizada está dentro de code-cortex/knowledge.
+- A única documentação autorizada está dentro de code-cortex/documentation/knowledge.
 - Não consulte nem peça para consultar outros arquivos do workspace ou o projeto inteiro.
 - Não use conhecimento externo para preencher lacunas.
 - Se o contexto não bastar, declare a limitação em vez de adivinhar.

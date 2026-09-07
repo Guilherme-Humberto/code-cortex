@@ -43,7 +43,7 @@ Segurança e sincronização
 - Sincronização: apenas extensões permitidas são copiadas (markdown, texto, json, yaml, csv, html, docx convertido). Arquivos binários e muito grandes são ignorados.
 - Extração DOCX: `.docx` é convertido para texto antes de salvar em `code-cortex/knowledge`.
 - Redaction: conteúdos sensíveis (chaves, certificados, tokens) são automaticamente redigidos antes de enviar prompts.
-- Histórico híbrido: metadados no `workspaceState` e arquivos `.md` sob `code-cortex/_history`. Há opção de limpar ou exportar.
+- Histórico híbrido: metadados no `workspaceState` e arquivos `.md` sob `code-cortex/.history`. Há opção de limpar ou exportar.
 
 O modelo utilizado e a estimativa de tokens aparecem junto ao resultado. O modelo pode ser escolhido na tela de configurações da extensão.
 

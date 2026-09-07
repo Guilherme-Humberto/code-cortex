@@ -17,7 +17,9 @@ import {
   setOngoingRequest
 } from '../../utils/ongoing-request.util';
 import {
+  DOCUMENTATION_DIRECTORY,
   IMPACT_STATE_KEY,
+  KNOWLEDGE_DIRECTORY,
   LAST_CHANGE_CONTEXT_KEY,
   MEMORY_PATH,
   SELECTED_MODEL_KEY
@@ -362,12 +364,13 @@ async function executeImpactAnalysis(
         const knowledgeFolder = vscode.Uri.joinPath(
           workspace.uri,
           MEMORY_PATH,
-          'knowledge'
+          DOCUMENTATION_DIRECTORY,
+          KNOWLEDGE_DIRECTORY
         );
         const knowledgeDocs = await findMarkdownDocuments(knowledgeFolder);
         if (knowledgeDocs.length === 0) {
           ImpactViewProvider.current?.showAnalysis(
-            '## Análise de Impacto indisponível\n\nNenhuma documentação foi encontrada em `code-cortex/knowledge`.\n\nAdicióne arquivos Markdown à base de conhecimento para que o modelo possa comparar as alterações com as regras documentadas.',
+            '## Análise de Impacto indisponível\n\nNenhuma documentação foi encontrada em `code-cortex/documentation/knowledge`.\n\nAdicióne arquivos Markdown à base de conhecimento para que o modelo possa comparar as alterações com as regras documentadas.',
             0
           );
           return;

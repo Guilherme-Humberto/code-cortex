@@ -2,6 +2,11 @@ import * as https from 'https';
 import * as vscode from 'vscode';
 
 import {
+  DOCUMENTATION_DIRECTORY,
+  KNOWLEDGE_DIRECTORY,
+  MEMORY_PATH
+} from '../../constants';
+import {
   isDocxKnowledgeFile,
   prepareKnowledgeFileForStorage
 } from '../../utils/knowledge-file.util';
@@ -146,8 +151,9 @@ export async function syncFromGithubRepository(
 
         const targetDir = vscode.Uri.joinPath(
           workspaceFolder,
-          'code-cortex',
-          'knowledge'
+          MEMORY_PATH,
+          DOCUMENTATION_DIRECTORY,
+          KNOWLEDGE_DIRECTORY
         );
         await vscode.workspace.fs.createDirectory(targetDir);
 

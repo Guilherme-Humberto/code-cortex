@@ -29,7 +29,7 @@ describe('history.service', () => {
     vscode.workspace.workspaceFolders = [];
   });
 
-  it('saves a Markdown entry with metadata in code-cortex/_history', async () => {
+  it('saves a Markdown entry with metadata in code-cortex/.history', async () => {
     const createDirectory = jest.spyOn(vscode.workspace.fs, 'createDirectory');
     const writeFile = jest.spyOn(vscode.workspace.fs, 'writeFile');
 
@@ -41,11 +41,13 @@ describe('history.service', () => {
         totalTokens: 123,
         files: ['src/example.ts']
       })
-    ).resolves.toBe('code-cortex/_history/20260814_impact_analysis_01.md');
+    ).resolves.toBe('code-cortex/.history/20260814_impact_analysis_01.md');
 
     expect(createDirectory).toHaveBeenCalled();
     expect(writeFile).toHaveBeenCalledWith(
-      expect.objectContaining({ fsPath: expect.stringContaining('_history') }),
+      expect.objectContaining({
+        fsPath: expect.stringContaining('.history')
+      }),
       expect.anything()
     );
     const [, bytes] = writeFile.mock.calls[0] as [vscode.Uri, Uint8Array];
@@ -68,7 +70,7 @@ describe('history.service', () => {
     });
 
     expect(historyPath).toBe(
-      'code-cortex/_history/20260814_knowledge_search_01.md'
+      'code-cortex/.history/20260814_knowledge_search_01.md'
     );
     expect(writeFile).toHaveBeenCalled();
   });
@@ -89,7 +91,7 @@ describe('history.service', () => {
         totalTokens: 42,
         createdAt: '2026-08-14T12:34:56.789Z',
         files: ['src/example.ts'],
-        path: 'code-cortex/_history/consulta-20260814123456789.md'
+        path: 'code-cortex/.history/consulta-20260814123456789.md'
       },
       {
         id: 'def456',
@@ -99,7 +101,7 @@ describe('history.service', () => {
         totalTokens: 5,
         createdAt: '2026-08-13T12:00:00.000Z',
         files: [],
-        path: 'code-cortex/_history/consulta-20260813120000000.md'
+        path: 'code-cortex/.history/consulta-20260813120000000.md'
       }
     ]);
 
@@ -114,7 +116,7 @@ describe('history.service', () => {
         totalTokens: 42,
         createdAt: '2026-08-14T12:34:56.789Z',
         files: ['src/example.ts'],
-        path: 'code-cortex/_history/consulta-20260814123456789.md'
+        path: 'code-cortex/.history/consulta-20260814123456789.md'
       },
       {
         id: 'def456',
@@ -124,7 +126,7 @@ describe('history.service', () => {
         totalTokens: 5,
         createdAt: '2026-08-13T12:00:00.000Z',
         files: [],
-        path: 'code-cortex/_history/consulta-20260813120000000.md'
+        path: 'code-cortex/.history/consulta-20260813120000000.md'
       }
     ]);
   });
@@ -150,7 +152,7 @@ describe('history.service', () => {
         totalTokens: 42,
         createdAt: '2026-08-14T12:34:56.789Z',
         files: ['src/example.ts'],
-        path: 'code-cortex/_history/consulta-20260814123456789.md'
+        path: 'code-cortex/.history/consulta-20260814123456789.md'
       }
     ]);
     jest.spyOn(vscode.workspace.fs, 'stat').mockResolvedValue({} as any);
